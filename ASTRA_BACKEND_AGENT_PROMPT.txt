@@ -1,0 +1,142 @@
+ASTRA BACKEND AGENT PROMPT
+
+You are the backend agent for ASTRA. Read the existing repository first and preserve working code.
+
+TASK
+Integrate the supplied P-3 anomaly detector into the existing backend, then connect it to Gemini and the frontend. Do not retrain or replace the detector unless explicitly requested.
+
+FILES FROM ML TEAM
+- p3_detector.py
+- p3_detector_config.json
+- README.txt
+- NASA dataset ZIP supplied separately for reproduction/testing
+
+FINAL DETECTOR CONFIG
+channel = P-3
+detector = change_detection
+telemetry_feature = 0
+threshold = 0.3888857
+threshold_method = 99th_percentile_validation_change
+max_gap = 30
+event_buffer = 15
+merge_gap = 250
+requires_operator_approval = true
+
+DETECTOR LOGIC
+change = abs(current_value - previous_value)
+if change > 0.3888857: anomaly=True
+Then group nearby anomaly points (gap <= 30), add a 15-point buffer, and merge events whose gap <= 250.
+
+INTEGRATION TEST
+Process the full P-3 NASA test stream from timestamp 0. Expected output:
+Event 1: 5400 -> 6656
+Total events: 1
+Do not move on until this test passes.
+
+CURRENT RESULTS
+Overall 68-channel benchmark:
+- Accuracy 80.39%
+- Precision 24.11%
+- Recall 33.80%
+- F1 28.14%
+- Event detection 81.61% (71/87)
+
+P-3 demonstration:
+- Accuracy 96.70%
+- Precision 99.91%
+- Recall 79.12%
+- F1 88.30%
+- Event detection 100% for the single labeled P-3 event
+
+Never call 96.70% the overall ASTRA accuracy. It is the P-3 demo result.
+
+SAFETY
+ASTRA is an AI-assisted mission-control demo, not an autonomous spacecraft controller.
+Never automatically execute spacecraft commands. Recommendations require operator approval.
+Do not invent physical causes that telemetry does not support.
+
+GEMINI ROLE
+Numerical detector = anomaly detection.
+Gemini = explanation/reasoning.
+Send structured evidence to Gemini and require structured JSON back.
+
+Suggested Gemini input:
+{
+  "channel": "P-3",
+  "anomaly_detected": true,
+  "event_start": 5400,
+  "event_end": 6656,
+  "duration": 1257,
+  "detector": "change_detection",
+  "threshold": 0.3888857,
+  "requires_operator_approval": true
+}
+
+Suggested Gemini output:
+{
+  "diagnosis": "Telemetry pattern is consistent with an abnormal subsystem state.",
+  "severity": "HIGH",
+  "confidence": 0.91,
+  "evidence": ["...", "..."],
+  "recommendation": "...",
+  "operator_approval_required": true
+}
+
+Example values are illustrative. Validate actual Gemini output.
+
+API SUGGESTION
+GET  /api/health
+POST /api/telemetry
+GET  /api/events
+POST /api/events/{event_id}/analyze
+WS   /ws/telemetry
+Adapt routes to the existing backend if equivalents already exist.
+
+Example telemetry request:
+{
+  "channel": "P-3",
+  "timestamp": 5401,
+  "value": 0.42
+}
+
+Keep API keys server-side. Use environment variable GEMINI_API_KEY. Never expose secrets in frontend or source control.
+
+EVENT OBJECT EXAMPLE
+{
+  "event_id": "ASTRA-P3-0001",
+  "channel": "P-3",
+  "detector": "change_detection",
+  "start_timestamp": 5400,
+  "end_timestamp": 6656,
+  "duration": 1257,
+  "status": "ANOMALY_DETECTED",
+  "operator_approval_required": true,
+  "gemini_analysis": null
+}
+
+IMPLEMENTATION ORDER
+1. Inspect repository.
+2. Integrate p3_detector.py.
+3. Load p3_detector_config.json.
+4. Add detector unit tests.
+5. Reproduce 5400 -> 6656 on full P-3 test data.
+6. Add REST/WebSocket telemetry flow.
+7. Add event storage/logging.
+8. Add Gemini structured analysis.
+9. Validate Gemini JSON.
+10. Connect frontend.
+11. Add end-to-end tests.
+
+DO NOT
+- retrain ML
+- change detector threshold without approval
+- add StandardScaler to P-3
+- replace detector with LSTM
+- execute real spacecraft commands
+- expose Gemini key
+- invent physical root causes
+- claim P-3 results are overall results
+- break existing backend/frontend features
+
+FINAL SUCCESS
+Backend starts, detector loads, P-3 integration reproduces 5400->6656, live telemetry can trigger an event, event is stored, Gemini analysis works with validated JSON, frontend receives the result, operator approval is shown, and no secret is exposed.
