@@ -1,0 +1,30 @@
+# Agents and AI custom skills
+.agents/
+.agent/
+_agents/
+
+# Dependencies & Build artifacts
+node_modules/
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment & Secrets
+.env
+.env*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Editor & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
