@@ -17,6 +17,7 @@ import {
   ArrowUpRight,
   ShieldCheck,
   Flame,
+  Gauge,
 } from 'lucide-react';
 
 export const MissionOverviewPage = () => {
@@ -29,49 +30,68 @@ export const MissionOverviewPage = () => {
     triggerCrisis,
     resetToNominal,
     setActiveTab,
+    selectedAnomaly,
+    isBackendConnected,
+    playNasaP3Stream,
   } = useMission();
+
+  const currentAnalysis = selectedAnomaly?.geminiDiagnosis;
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-12">
-      {/* CRISIS ALERT BANNER (Only visible when Solar Strike is simulated) */}
-      {isCrisis && (
-        <div className="rounded-xl p-4 bg-red-600 text-white shadow-lg flex flex-wrap items-center justify-between gap-4 border border-red-700 animate-alert-ring">
+      {/* CRISIS ALERT BANNER */}
+      {(isCrisis || telemetry.mode === 'nasa_p3') && (
+        <div
+          className={`rounded-xl p-4 text-white shadow-lg flex flex-wrap items-center justify-between gap-4 border ${
+            telemetry.mode === 'nasa_p3'
+              ? 'bg-sky-900 border-sky-800'
+              : 'bg-red-600 border-red-700 animate-alert-ring'
+          }`}
+        >
           <div className="flex items-center gap-3">
             <div className="p-2 bg-white/10 rounded-lg">
-              <Flame className="w-6 h-6 animate-pulse" />
+              {telemetry.mode === 'nasa_p3' ? (
+                <Radio className="w-6 h-6 animate-pulse text-sky-300" />
+              ) : (
+                <Flame className="w-6 h-6 animate-pulse" />
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-display font-bold text-sm uppercase tracking-wider">
-                  CRITICAL INCIDENT DETECTED
+                  {telemetry.mode === 'nasa_p3'
+                    ? 'NASA P-3 DATASET REPLAY ACTIVE'
+                    : 'CRITICAL ANOMALY DETECTED'}
                 </span>
                 <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-black/30">
-                  INC-2026-088
+                  {telemetry.mode === 'nasa_p3' ? `STEP ${telemetry.step}` : selectedAnomaly?.id || 'INC-001'}
                 </span>
               </div>
               <p className="text-xs opacity-90 font-mono mt-0.5">
-                Solar Array Strike: Photovoltaic collapse (0.0%), Bus undervoltage (11.0V), Core temp spike (85.0°C).
+                {telemetry.mode === 'nasa_p3'
+                  ? `Telemetry stream approaching target event 5400 → 6656 (Change threshold: 0.3889).`
+                  : `Change detection threshold exceeded. Autonomous execution prohibited. Operator review required.`}
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <button
               onClick={() => setActiveTab('anomalies')}
-              className="px-3.5 py-1.5 rounded-lg bg-white text-red-700 hover:bg-white/90 text-xs font-bold uppercase tracking-wider font-display shadow-sm cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-white text-[#233446] hover:bg-white/90 text-xs font-bold uppercase tracking-wider font-display shadow-sm cursor-pointer"
             >
               Inspect Anomaly
             </button>
             <button
               onClick={resetToNominal}
-              className="px-3.5 py-1.5 rounded-lg bg-red-800 hover:bg-red-900 text-white text-xs font-mono cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-black/30 hover:bg-black/40 text-white text-xs font-mono cursor-pointer"
             >
-              Clear Fault
+              Reset Nominal
             </button>
           </div>
         </div>
       )}
 
-      {/* TOP 3 MAIN CARDS (Direct from Page 1 Guide) */}
+      {/* TOP 3 MAIN CARDS */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Card 1: SYSTEM */}
         <div className="rounded-2xl p-5 bg-white border border-[#e6e1d7] shadow-xs flex flex-col justify-between">
@@ -89,7 +109,7 @@ export const MissionOverviewPage = () => {
               {isCrisis ? (
                 <>
                   <AlertTriangle className="w-3.5 h-3.5 text-red-600 animate-pulse" />
-                  CRITICAL
+                  ANOMALY ACTIVE
                 </>
               ) : (
                 <>
@@ -102,30 +122,40 @@ export const MissionOverviewPage = () => {
 
           <div className="my-3">
             <div className="font-display font-bold text-2xl text-[#161514] tracking-tight">
-              {isCrisis ? 'Interlocks Tripped' : '100% Operational'}
+              {isCrisis ? 'Detector Breached' : 'Flight Systems Nominal'}
             </div>
             <p className="text-xs text-[#736f68] mt-1 font-mono">
               {isCrisis
-                ? '3 threshold limits breached (EPS & TCS)'
-                : 'All 4 primary flight computers responding'}
+                ? 'Channel P-3 change detection exceeded 0.3889 threshold'
+                : 'All 4 primary flight computers telemetry synchronized'}
             </p>
           </div>
 
           <div className="pt-2 border-t border-[#f1f5f9] flex items-center justify-between text-xs font-mono text-[#736f68]">
             <span>Bus: {telemetry.voltage.toFixed(1)}V</span>
-            <span>Drift: {telemetry.adcs_drift}°/hr</span>
+            <span>Channel: {telemetry.channel || 'P-3'}</span>
           </div>
         </div>
 
-        {/* Card 2: TELEMETRY */}
+        {/* Card 2: TELEMETRY & WEBSOCKET */}
         <div className="rounded-2xl p-5 bg-white border border-[#e6e1d7] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#736f68]">
               WebSocket Stream
             </span>
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-50 text-cyan-800 border border-cyan-200 text-xs font-mono font-bold">
-              <span className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-              LIVE 10Hz
+            <span
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono font-bold ${
+                isBackendConnected
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border border-amber-200'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'
+                }`}
+              />
+              {isBackendConnected ? 'LIVE :8000' : 'OFFLINE'}
             </span>
           </div>
 
@@ -135,7 +165,7 @@ export const MissionOverviewPage = () => {
               <span className="text-sm font-normal text-[#736f68]">packets / sec</span>
             </div>
             <p className="text-xs text-[#736f68] mt-1 font-mono">
-              DSN Madrid Complex 63 • 0.0% packet drop
+              Mode: {telemetry.mode || 'nominal'} • Step {telemetry.step || 0}
             </p>
           </div>
 
@@ -149,7 +179,7 @@ export const MissionOverviewPage = () => {
         <div className="rounded-2xl p-5 bg-white border border-[#e6e1d7] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
             <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#736f68]">
-              Diagnostic Copilot
+              Reasoning Engine
             </span>
             <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-800 border border-purple-200 text-xs font-mono font-bold">
               <Sparkles className="w-3.5 h-3.5 text-purple-600" />
@@ -159,28 +189,28 @@ export const MissionOverviewPage = () => {
 
           <div className="my-3">
             <div className="font-display font-bold text-2xl text-[#161514] tracking-tight">
-              Gemini 1.5 Diagnostic
+              Gemini 2.5 Flash Reasoner
             </div>
             <p className="text-xs text-[#736f68] mt-1 font-mono">
-              {isCrisis ? 'Emergency fault isolation active' : 'Zero-shot anomaly detector running'}
+              {isCrisis ? 'Emergency fault isolation active' : 'Numerical change detection + structured evidence'}
             </p>
           </div>
 
           <div className="pt-2 border-t border-[#f1f5f9] flex items-center justify-between text-xs font-mono text-[#736f68]">
-            <span>Anomaly Score: {telemetry.anomaly_score.toFixed(2)}</span>
-            <span className="text-purple-600 font-semibold">Latency: 182ms</span>
+            <span>Score: {(telemetry.anomaly_score || 0).toFixed(4)}</span>
+            <span className="text-purple-600 font-semibold">Sign-off: Enforced</span>
           </div>
         </div>
       </div>
 
-      {/* LIVE TELEMETRY: 4 CHANNELS (Direct from Page 1 Guide) */}
+      {/* LIVE TELEMETRY: 5 CHANNELS */}
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-[#233446]" />
             <h2 className="font-display font-bold text-lg text-[#161514]">Live Telemetry Matrix</h2>
             <span className="font-mono text-xs text-[#736f68] bg-slate-100 px-2 py-0.5 rounded-full">
-              4 Real-time Channels
+              5 Real-time Channels
             </span>
           </div>
           <button
@@ -191,8 +221,27 @@ export const MissionOverviewPage = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1: Temperature */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Card 1: Channel P-3 */}
+          <TelemetryMetricCard
+            title="Channel P-3"
+            value={typeof telemetry.p3_value === 'number' ? telemetry.p3_value.toFixed(3) : '0.120'}
+            unit="val"
+            status={telemetry.anomaly_score > 0.3889 || isCrisis ? 'Breach' : 'Nominal'}
+            statusType={telemetry.anomaly_score > 0.3889 || isCrisis ? 'critical' : 'nominal'}
+            delta={`Δ: ${(telemetry.anomaly_score || 0).toFixed(3)}`}
+            deltaPositive={telemetry.anomaly_score <= 0.3889}
+            minVal="Thresh: 0.389"
+            maxVal="MaxGap: 30"
+            nominalRange="Δ &lt; 0.389"
+            history={telemetryHistory}
+            dataKey="score"
+            color="#8b5cf6"
+            icon={Gauge}
+            onClick={() => setActiveTab('telemetry')}
+          />
+
+          {/* Card 2: Temperature */}
           <TelemetryMetricCard
             title="Temperature"
             value={telemetry.temperature.toFixed(1)}
@@ -201,8 +250,8 @@ export const MissionOverviewPage = () => {
             statusType={isCrisis || telemetry.temperature > 40 ? 'critical' : 'nominal'}
             delta="-2.1%"
             deltaPositive={false}
-            minVal={`${telemetry.minTemp} °C`}
-            maxVal={`${telemetry.maxTemp} °C`}
+            minVal={`${telemetry.minTemp || 13.8} °C`}
+            maxVal={`${telemetry.maxTemp || 86.5} °C`}
             nominalRange="10–30 °C"
             history={telemetryHistory}
             dataKey="temp"
@@ -211,9 +260,9 @@ export const MissionOverviewPage = () => {
             onClick={() => setActiveTab('telemetry')}
           />
 
-          {/* Card 2: Regulated Bus */}
+          {/* Card 3: Regulated Bus */}
           <TelemetryMetricCard
-            title="Regulated"
+            title="Regulated Bus"
             value={telemetry.voltage.toFixed(1)}
             unit="VDC"
             status={isCrisis || telemetry.voltage < 20 ? 'Critical' : 'Stable'}
@@ -230,9 +279,9 @@ export const MissionOverviewPage = () => {
             onClick={() => setActiveTab('telemetry')}
           />
 
-          {/* Card 3: Li-Ion Battery */}
+          {/* Card 4: Li-Ion Battery */}
           <TelemetryMetricCard
-            title="Li-Ion"
+            title="Li-Ion Battery"
             value={telemetry.battery_pct.toFixed(1)}
             unit="%"
             status="Healthy"
@@ -241,7 +290,7 @@ export const MissionOverviewPage = () => {
             deltaPositive={true}
             minVal="82.0 %"
             maxVal="98.6 %"
-            nominalRange="> 70 %"
+            nominalRange="&gt; 70 %"
             history={telemetryHistory}
             dataKey="battery"
             color="#10b981"
@@ -249,7 +298,7 @@ export const MissionOverviewPage = () => {
             onClick={() => setActiveTab('telemetry')}
           />
 
-          {/* Card 4: Photovoltaic (Solar) */}
+          {/* Card 5: Photovoltaic (Solar) */}
           <TelemetryMetricCard
             title="Photovoltaic"
             value={telemetry.solar_input.toFixed(1)}
@@ -260,7 +309,7 @@ export const MissionOverviewPage = () => {
             deltaPositive={false}
             minVal="0.0 %"
             maxVal="97.2 %"
-            nominalRange="> 80 %"
+            nominalRange="&gt; 80 %"
             history={telemetryHistory}
             dataKey="solar"
             color="#f97316"
@@ -343,7 +392,7 @@ export const MissionOverviewPage = () => {
 
         {/* Right: Latest AI Assessment & Recent Events (5 cols) */}
         <div className="lg:col-span-5 flex flex-col gap-4">
-          {/* AI Assessment Card (Gemini Copilot) */}
+          {/* AI Assessment Card */}
           <div className="rounded-2xl p-5 bg-linear-to-br from-white to-purple-50/40 border border-purple-200/80 shadow-xs flex flex-col justify-between relative overflow-hidden">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -352,47 +401,36 @@ export const MissionOverviewPage = () => {
                 </div>
                 <div>
                   <span className="font-display font-bold text-sm text-[#161514] block">
-                    Latest AI Assessment
+                    Gemini AI Assessment
                   </span>
-                  <span className="font-mono text-[10px] text-purple-700">Gemini 1.5 Diagnostic Engine</span>
+                  <span className="font-mono text-[10px] text-purple-700">Structured Telemetry Reasoner</span>
                 </div>
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-bold">
-                {isCrisis ? 'CRISIS MODE' : 'NOMINAL'}
+                {isCrisis ? 'ALERT' : 'NOMINAL'}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-white/80 border border-purple-100 text-xs text-[#161514] leading-relaxed my-1">
-              {!isCrisis ? (
-                <p>
-                  All telemetry streams remain within strict operational tolerances. Electrical power
-                  balance is positive (+42W net). Zero thermal drift detected across all four orbital
-                  quadrants.
-                </p>
-              ) : (
-                <p className="text-red-900 font-medium">
-                  CRITICAL EVENT: Telemetry confirms catastrophic loss of photovoltaic output accompanied
-                  by electrical bus drawdown to 11.0V and battery core thermal runaway (85.0°C).
-                  Recommended action: Immediate Protective Safe Mode.
-                </p>
-              )}
+            <div className="p-3.5 rounded-xl bg-white/80 border border-purple-100 text-xs text-[#161514] leading-relaxed my-1 font-mono">
+              <p>
+                {currentAnalysis?.rootCause ||
+                  (isCrisis
+                    ? 'Telemetry pattern is consistent with an abnormal subsystem state. Grounded deviation exceeds learned 0.3889 validation threshold.'
+                    : 'All spacecraft telemetry parameters adhere to expected baseline models. Telemetry step changes remain within normal threshold.')}
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-purple-100/80">
               <div className="flex flex-col">
                 <span className="font-mono text-[10px] uppercase text-[#736f68]">Decision Confidence</span>
                 <span className="font-mono text-base font-bold text-[#161514]">
-                  {isCrisis ? '91.4%' : '99.4%'}
+                  {selectedAnomaly?.mlConfidence || '91.0%'}
                 </span>
               </div>
               <div className="flex flex-col">
-                <span className="font-mono text-[10px] uppercase text-[#736f68]">Survival Probability</span>
-                <span
-                  className={`font-mono text-base font-bold ${
-                    isCrisis ? 'text-red-600' : 'text-emerald-600'
-                  }`}
-                >
-                  {isCrisis ? '72% (Degrading)' : '100% Nominal'}
+                <span className="font-mono text-[10px] uppercase text-[#736f68]">Operator Approval</span>
+                <span className="font-mono text-base font-bold text-emerald-600">
+                  Enforced
                 </span>
               </div>
             </div>
@@ -411,7 +449,7 @@ export const MissionOverviewPage = () => {
           {/* Recent Mission Events Feed */}
           <div className="rounded-2xl p-4 bg-white border border-[#e6e1d7] shadow-xs flex flex-col justify-between">
             <div className="flex items-center justify-between mb-2">
-              <span className="font-display font-bold text-sm text-[#161514]">Recent Mission Events</span>
+              <span className="font-display font-bold text-sm text-[#161514]">Mission Audit Ledger</span>
               <button
                 onClick={() => setActiveTab('events')}
                 className="text-[11px] font-mono text-[#233446] hover:underline cursor-pointer"
@@ -431,7 +469,7 @@ export const MissionOverviewPage = () => {
                     className={`text-[9px] px-1.5 py-0.2 rounded font-bold shrink-0 ${
                       evt.type === 'CRITICAL'
                         ? 'bg-red-100 text-red-700'
-                        : evt.type === 'COMMAND_UPLINK'
+                        : evt.type === 'OPERATOR_APPROVAL' || evt.type === 'COMMAND_UPLINK'
                         ? 'bg-emerald-100 text-emerald-800'
                         : 'bg-blue-100 text-blue-800'
                     }`}

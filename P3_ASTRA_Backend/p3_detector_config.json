@@ -1,0 +1,11 @@
+{
+    "channel": "P-3",
+    "detector": "change_detection",
+    "telemetry_feature": 0,
+    "threshold": 0.3888857066631317,
+    "threshold_method": "99th_percentile_validation_change",
+    "max_gap": 30,
+    "event_buffer": 15,
+    "merge_gap": 250,
+    "requires_operator_approval": true
+}

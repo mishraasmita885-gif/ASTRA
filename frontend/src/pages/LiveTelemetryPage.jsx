@@ -12,11 +12,20 @@ import {
   Sun,
   Radio,
   RotateCcw,
+  Gauge,
 } from 'lucide-react';
 
 export const LiveTelemetryPage = () => {
-  const { telemetry, telemetryHistory, isCrisis, triggerCrisis, resetToNominal } = useMission();
-  const [selectedChannel, setSelectedChannel] = useState('temp');
+  const {
+    telemetry,
+    telemetryHistory,
+    isCrisis,
+    triggerCrisis,
+    resetToNominal,
+    playNasaP3Stream,
+    isBackendConnected,
+  } = useMission();
+  const [selectedChannel, setSelectedChannel] = useState('p3');
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-12">
@@ -32,20 +41,27 @@ export const LiveTelemetryPage = () => {
             </h1>
           </div>
           <p className="text-xs font-mono text-[#736f68] mt-1 pl-10.5">
-            Synchronized 10Hz sampling via WebSocket • Low Earth Orbit (LEO) DSN Complex 42
+            Real-time WebSocket telemetry stream • Mode: <strong className="text-[#161514]">{telemetry.mode || 'nominal'}</strong> • Step: {telemetry.step || 0}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-mono font-bold text-emerald-800 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            LIVE ● Telemetry Connected
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
+              }`}
+            />
+            {isBackendConnected ? 'LIVE ● WebSocket Connected' : 'Connecting to :8000...'}
           </div>
 
-          <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-[#e6e1d7] text-xs font-mono text-[#736f68] shadow-2xs">
-            <Clock className="w-3.5 h-3.5" />
-            <span>Last Sync: {new Date(telemetry.timestamp).toLocaleTimeString()}</span>
-          </div>
+          <button
+            onClick={() => playNasaP3Stream(5300)}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-mono text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+          >
+            <Radio className="w-3.5 h-3.5 text-sky-600" />
+            <span>NASA P-3 Replay</span>
+          </button>
 
           {/* Quick crisis toggle for demo */}
           {!isCrisis ? (
@@ -69,9 +85,29 @@ export const LiveTelemetryPage = () => {
         </div>
       </div>
 
-      {/* 2. Top 4 Metric KPI Cards (exact reference design) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Temperature */}
+      {/* 2. Top 5 Metric KPI Cards (including P-3 Detector Channel) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Card 1: P-3 ML Channel */}
+        <TelemetryMetricCard
+          title="Channel P-3"
+          value={typeof telemetry.p3_value === 'number' ? telemetry.p3_value.toFixed(3) : '0.120'}
+          unit="val"
+          status={telemetry.anomaly_score > 0.3889 || isCrisis ? 'Change Breach' : 'Nominal'}
+          statusType={telemetry.anomaly_score > 0.3889 || isCrisis ? 'critical' : 'nominal'}
+          delta={`Score: ${(telemetry.anomaly_score || 0).toFixed(3)}`}
+          deltaPositive={telemetry.anomaly_score <= 0.3889}
+          minVal="Thresh: 0.389"
+          maxVal="MaxGap: 30"
+          nominalRange="Δ &lt; 0.389"
+          history={telemetryHistory}
+          dataKey="score"
+          color="#8b5cf6"
+          icon={Gauge}
+          isSelected={selectedChannel === 'p3'}
+          onClick={() => setSelectedChannel('p3')}
+        />
+
+        {/* Card 2: Temperature */}
         <TelemetryMetricCard
           title="Temperature"
           value={telemetry.temperature.toFixed(1)}
@@ -91,9 +127,9 @@ export const LiveTelemetryPage = () => {
           onClick={() => setSelectedChannel('temp')}
         />
 
-        {/* Card 2: Regulated Bus */}
+        {/* Card 3: Regulated Bus */}
         <TelemetryMetricCard
-          title="Regulated"
+          title="Regulated Bus"
           value={telemetry.voltage.toFixed(1)}
           unit="VDC"
           status={isCrisis || telemetry.voltage < 20 ? 'Critical' : 'Stable'}
@@ -111,9 +147,9 @@ export const LiveTelemetryPage = () => {
           onClick={() => setSelectedChannel('voltage')}
         />
 
-        {/* Card 3: Li-Ion Battery */}
+        {/* Card 4: Li-Ion Battery */}
         <TelemetryMetricCard
-          title="Li-Ion"
+          title="Li-Ion Battery"
           value={telemetry.battery_pct.toFixed(1)}
           unit="%"
           status="Healthy"
@@ -122,7 +158,7 @@ export const LiveTelemetryPage = () => {
           deltaPositive={true}
           minVal="82.0 %"
           maxVal="98.6 %"
-          nominalRange="> 70 %"
+          nominalRange="&gt; 70 %"
           history={telemetryHistory}
           dataKey="battery"
           color="#10b981"
@@ -131,7 +167,7 @@ export const LiveTelemetryPage = () => {
           onClick={() => setSelectedChannel('battery')}
         />
 
-        {/* Card 4: Photovoltaic (Solar) */}
+        {/* Card 5: Photovoltaic (Solar) */}
         <TelemetryMetricCard
           title="Photovoltaic"
           value={telemetry.solar_input.toFixed(1)}
@@ -142,7 +178,7 @@ export const LiveTelemetryPage = () => {
           deltaPositive={false}
           minVal="0.0 %"
           maxVal="97.2 %"
-          nominalRange="> 80 %"
+          nominalRange="&gt; 80 %"
           history={telemetryHistory}
           dataKey="solar"
           color="#f97316"
@@ -152,7 +188,7 @@ export const LiveTelemetryPage = () => {
         />
       </div>
 
-      {/* 3. Hero Visualizer: Synchronized Multi-Channel Waveform (exact reference) */}
+      {/* 3. Hero Visualizer: Synchronized Multi-Channel Waveform */}
       <SynchronizedWaveformChart
         history={telemetryHistory}
         isCrisis={isCrisis}
