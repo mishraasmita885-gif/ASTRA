@@ -1,3 +1,4 @@
+import os
 import json
 import logging
 from typing import Dict, Any, List, Optional
@@ -5,6 +6,25 @@ from pydantic import BaseModel, Field
 from app.core.config import settings
 
 logger = logging.getLogger("astra.gemini")
+
+# Prioritized list of high-performance Gemini models for aerospace anomaly reasoning
+DEFAULT_CANDIDATE_MODELS = [
+    "gemini-3.5-flash",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-latest",
+    "gemini-flash-lite-latest",
+    "gemini-3.6-flash",
+    "gemini-3.7-flash",
+    "gemini-3.8-flash",
+    "gemini-3.1-flash-lite",
+    "gemini-2.5-flash-lite",
+    "gemini-pro-latest",
+    "gemini-3.1-pro-preview",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemma-4-26b-a4b-it",
+    "gemma-4-31b-it",
+]
 
 
 class GeminiAnalysisResult(BaseModel):
@@ -34,28 +54,76 @@ class GeminiAnalysisResult(BaseModel):
         default=True,
         description="Enforced safety constraint: spacecraft actions require human sign-off."
     )
+    model_used: Optional[str] = Field(
+        default=None,
+        description="The active Gemini model or engine that produced the analysis."
+    )
 
 
 class GeminiDiagnosisService:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
+        self.configured_model = settings.GEMINI_MODEL
         self.model_name = settings.GEMINI_MODEL
         self._client = None
+        self._discovered_models: List[str] = []
+        self._get_client()
 
-        if self.api_key:
-            try:
-                from google import genai
-                self._client = genai.Client(api_key=self.api_key)
-                logger.info("Google GenAI client initialized successfully.")
-            except Exception as e:
-                logger.warning(f"Failed to initialize google-genai client: {e}. Fallback engine will be used.")
+    def _get_client(self):
+        if not self._client:
+            api_key = os.getenv("GEMINI_API_KEY") or settings.GEMINI_API_KEY
+            if api_key:
+                try:
+                    from google import genai
+                    self._client = genai.Client(api_key=api_key)
+                    self.api_key = api_key
+                    logger.info("Google GenAI client initialized successfully.")
+                    
+                    # Dynamically discover all active generation models for this key
+                    try:
+                        api_models = [
+                            m.name.replace("models/", "")
+                            for m in self._client.models.list()
+                            if "generateContent" in getattr(m, "supported_actions", [])
+                            and not any(x in m.name.lower() for x in ["tts", "transcribe", "clip", "robotics"])
+                        ]
+                        self._discovered_models = api_models
+                        logger.info(f"Discovered {len(api_models)} active generation models for this API key.")
+                    except Exception as e:
+                        logger.warning(f"Could not fetch dynamic model list: {e}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to initialize google-genai client: {e}")
+        return self._client
 
     def is_configured(self) -> bool:
-        return bool(self.api_key and self._client)
+        return bool(self._get_client())
+
+    def get_fallback_chain(self) -> List[str]:
+        """
+        Assembles a prioritized fallback list of all available models for this key.
+        Starts with the configured model, followed by fast flash models, pro models,
+        and all remaining dynamically discovered API models.
+        """
+        chain = []
+        configured = os.getenv("GEMINI_MODEL") or self.configured_model
+        if configured and configured != "gemini-2.5-flash":
+            chain.append(configured)
+
+        for m in DEFAULT_CANDIDATE_MODELS:
+            if m not in chain:
+                chain.append(m)
+
+        for m in self._discovered_models:
+            if m not in chain:
+                chain.append(m)
+
+        return chain
 
     async def analyze_event(self, event_data: Dict[str, Any]) -> GeminiAnalysisResult:
         """
         Produce a structured mission control diagnosis from telemetry anomaly evidence.
+        Cascades automatically across all candidate Gemini models upon 404, 429, 503, or other API errors.
         Always enforces operator_approval_required = True.
         """
         channel = event_data.get("channel", "P-3")
@@ -65,7 +133,7 @@ class GeminiDiagnosisService:
         threshold = event_data.get("threshold", 0.3888857)
         score = event_data.get("score", 0.0)
 
-        # Build structured prompt for Gemini
+        # Strict aerospace prompt
         system_instruction = (
             "You are ASTRA's Mission Intelligence Reasoner for orbital spacecraft operations. "
             "You receive structured telemetry anomaly evidence from numerical change detectors. "
@@ -104,28 +172,42 @@ class GeminiDiagnosisService:
             f"}}"
         )
 
-        if self.is_configured():
-            try:
-                response = self._client.models.generate_content(
-                    model=self.model_name,
-                    contents=user_prompt,
-                    config={
-                        "system_instruction": system_instruction,
-                        "response_mime_type": "application/json",
-                        "response_schema": GeminiAnalysisResult,
-                    }
-                )
-                
-                text_response = response.text.strip()
-                parsed = json.loads(text_response)
-                # Enforce safety flag
-                parsed["operator_approval_required"] = True
-                return GeminiAnalysisResult(**parsed)
-            except Exception as e:
-                logger.error(f"Gemini API call failed: {e}. Using deterministic safety fallback.")
+        client = self._get_client()
+        if client:
+            fallback_chain = self.get_fallback_chain()
+            logger.info(f"Gemini fallback chain loaded with {len(fallback_chain)} models.")
+
+            for model_name in fallback_chain:
+                try:
+                    logger.info(f"Querying Gemini model: [{model_name}] for anomaly {event_data.get('channel', 'P-3')}...")
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=user_prompt,
+                        config={
+                            "system_instruction": system_instruction,
+                            "response_mime_type": "application/json",
+                            "response_schema": GeminiAnalysisResult,
+                        }
+                    )
+                    text_response = response.text.strip()
+                    parsed = json.loads(text_response)
+                    # Enforce safety flag
+                    parsed["operator_approval_required"] = True
+                    parsed["model_used"] = model_name
+                    logger.info(f"Successfully generated structured diagnosis with model: [{model_name}]")
+                    return GeminiAnalysisResult(**parsed)
+
+                except Exception as e:
+                    logger.warning(
+                        f"Model [{model_name}] failed ({type(e).__name__}: {str(e)[:120]}). "
+                        f"Cascading to next candidate in fallback chain..."
+                    )
 
         # Deterministic aerospace fallback engine (matches NASA handoff guidance)
-        return self._generate_rule_based_fallback(channel, start, end, duration, threshold, score)
+        logger.warning("All available Gemini models in fallback chain failed or offline. Engaging deterministic aerospace fallback.")
+        fallback = self._generate_rule_based_fallback(channel, start, end, duration, threshold, score)
+        fallback.model_used = "Deterministic Aerospace Safety Fallback"
+        return fallback
 
     def _generate_rule_based_fallback(
         self, channel: str, start: int, end: int, duration: int, threshold: float, score: float
@@ -156,7 +238,8 @@ class GeminiDiagnosisService:
             confidence=confidence,
             evidence=evidence,
             recommendation=recommendation,
-            operator_approval_required=True
+            operator_approval_required=True,
+            model_used="Deterministic Aerospace Safety Fallback"
         )
 
 

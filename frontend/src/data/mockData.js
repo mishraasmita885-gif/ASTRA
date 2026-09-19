@@ -86,6 +86,87 @@ export const INITIAL_SUBSYSTEMS = [
   },
 ];
 
-export const INITIAL_ANOMALIES = [];
+export const INITIAL_ANOMALIES = [
+  {
+    id: 'ASTRA-P3-0001',
+    number: 'ANOMALY #001',
+    title: 'Channel P-3 Step Change [5400 → 6656]',
+    subsystem: 'INSTRUMENTATION / POWER',
+    severity: 'HIGH',
+    status: 'ANOMALY_DETECTED',
+    timestamp: '12:29:59',
+    detectedAt: 'Step 5400',
+    mlScore: 0.91,
+    mlConfidence: '91%',
+    detectionMethod: 'P-3 Telemetry Change Detection (Threshold 0.3889)',
+    summary: 'Telemetry pattern on channel P-3 is consistent with an abnormal subsystem state requiring diagnostic isolation.',
+    rawEvent: {
+      event_id: 'ASTRA-P3-0001',
+      channel: 'P-3',
+      detector: 'change_detection',
+      start_timestamp: 5400,
+      end_timestamp: 6656,
+      duration: 1257,
+      anomaly_score: 0.91,
+      status: 'ANOMALY_DETECTED',
+    },
+    delta: {
+      solar: '-74.2%',
+      voltage: '-6.8 V',
+      temp: '+42.5 °C',
+      discharge: '-12.4 A',
+    },
+    rulesTripped: [
+      { rule: 'P3_CHANGE_DETECTION_THRESHOLD (> 0.3888857)', actual: '0.9100', tripped: true },
+      { rule: 'EVENT_PERSISTENCE_BUFFER (15-pt buffer, 250-pt merge)', actual: '1257 cycles', tripped: true },
+    ],
+    geminiDiagnosis: {
+      model: 'ASTRA Neural AI Reasoner',
+      rootCause: 'Telemetry channel P-3 exhibited an anomalous deviation starting at epoch 5400 and persisting for 1256 seconds. The telemetry pattern is consistent with an abnormal subsystem state as flagged by the change detection algorithm.',
+      survivalProbability: 78,
+      timeToExhaustion: '24m 10s',
+      evidence: [
+        'Channel P-3 telemetry step-change exceeded learned validation threshold (0.3889).',
+        'Anomaly deviation persisted across 1257 telemetry cycles (index 5400 to 6656).',
+        'Peak change magnitude recorded at 0.9100 units.'
+      ],
+      recommendedAction: 'Place channel P-3 and associated subsystem under active operator review. Verify bus/thermal margins and assess execution of contingency safe-state protocol CMD_SAFE_P3.',
+      operator_approval_required: true,
+    },
+    commands: [
+      {
+        id: 'CMD-P3-SAFE-ASTRA-P3-0001',
+        name: 'CMD_SAFE_P3: Safe-State Channel P-3',
+        desc: 'Transfer sensor channel to redundant telemetry bus and isolate secondary load.',
+        severity: 'CRITICAL',
+        status: 'PENDING',
+        subsystem: 'POWER / INSTRUMENTATION',
+        uplinkEst: '1.2s',
+      },
+      {
+        id: 'CMD-P3-DIAG-ASTRA-P3-0001',
+        name: 'CMD_DIAG_ISOLATE: Run Self-Test Sequence',
+        desc: 'Execute calibrated 60-second self-diagnostic routine on instrumentation ADC.',
+        severity: 'HIGH',
+        status: 'PENDING',
+        subsystem: 'INSTRUMENTATION',
+        uplinkEst: '2.4s',
+      }
+    ]
+  }
+];
 
-export const INITIAL_AUDIT_LOG = [];
+export const INITIAL_AUDIT_LOG = [
+  {
+    id: 'evt_init_01',
+    time: '12:00:00',
+    type: 'NOMINAL',
+    message: 'ASTRA Telemetry stream online. Nominal background noise initialized.',
+  },
+  {
+    id: 'evt_init_02',
+    time: '12:29:59',
+    type: 'CRITICAL',
+    message: 'ANOMALY DETECTED: Channel P-3 step change detected at step 5400. Event ASTRA-P3-0001 logged.',
+  }
+];

@@ -22,7 +22,7 @@ export const EventLogPage = () => {
     { name: 'Deploy Solar Arrays', time: 'T+00:12:30', status: 'COMPLETED' },
     { name: 'Nominal Orbit Ops', time: 'T+01:30:00', status: isCrisis ? 'COMPLETED' : 'ACTIVE' },
     { name: 'Anomaly Injected', time: 'T+02:15:20', status: isCrisis ? 'ACTIVE' : 'STANDBY' },
-    { name: 'Gemini Recovery', time: 'T+02:18:00', status: isCrisis ? 'STAGED' : 'STANDBY' },
+    { name: 'AI Contingency Recovery', time: 'T+02:18:00', status: isCrisis ? 'STAGED' : 'STANDBY' },
   ];
 
   const filteredLog = auditLog.filter((evt) => {

@@ -46,10 +46,10 @@ export const LiveTelemetryPage = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-xs font-mono font-bold text-emerald-800 shadow-2xs">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#ebdccb] border border-[#4a2e1b] text-xs font-mono font-bold text-[#24140b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b]">
             <span
               className={`w-2 h-2 rounded-full ${
-                isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
+                isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
               }`}
             />
             {isBackendConnected ? 'LIVE ● WebSocket Connected' : 'Connecting to :8000...'}
@@ -57,7 +57,7 @@ export const LiveTelemetryPage = () => {
 
           <button
             onClick={() => playNasaP3Stream(5300)}
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-mono text-xs font-semibold transition-all cursor-pointer shadow-2xs"
+            className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#ebdccb] hover:bg-[#dfcdb7] text-[#24140b] border border-[#4a2e1b] font-mono text-xs font-bold transition-all cursor-pointer shadow-[1.5px_1.5px_0px_0px_#4a2e1b] active:translate-x-0.5 active:translate-y-0.5"
           >
             <Radio className="w-3.5 h-3.5 text-sky-600" />
             <span>NASA P-3 Replay</span>

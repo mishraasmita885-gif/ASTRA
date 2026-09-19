@@ -6,8 +6,13 @@
     --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     --bg-canvas: #f6f4ee;
-    --bg-card: #fdfcf9;
+    --bg-card: #ebdccb;
+    --bg-light-brown: #ebdccb;
+    --bg-light-brown-hover: #dfcdb7;
+    --bg-light-brown-active: #d5c0a8;
     --border-warm: #e5e0d4;
+    --border-brown: #4a2e1b;
+    --shadow-brown: #4a2e1b;
   }
 
   * {
@@ -16,7 +21,7 @@
 
   body {
     font-family: var(--font-sans);
-    background-color: #f6f4ee;
+    background-color: #f7f4ee;
     color: #161514;
     margin: 0;
     padding: 0;
@@ -87,3 +92,305 @@
 .animate-spin-slow {
   animation: spin-slow 24s linear infinite;
 }
+
+/* ==========================================================================
+   ASTRA DESIGN SYSTEM: Prominent Brown Border (#4a2e1b) & Drop Shadow
+   Hierarchical Surface Contrast: Internal elements NEVER match external elements
+   Level 1: Outer Cards / Panels -> Light Brown (#ebdccb)
+   Level 2: Inset Containers / Boxes / Sub-cards -> Warm Cream Ivory (#fbf7f0)
+   Level 2 Buttons directly inside Level 1 -> Warm Cream Ivory (#fbf7f0)
+   Level 3: Buttons / Badges / Controls inside Level 2 -> Light Brown / Tan (#ebdccb / #dfcdb7)
+   Selected State -> Rich Warm Caramel Tan (#dfcdb7)
+   Dedicated functional colors (emerald, red, purple, amber, sky, dark) strictly preserved
+   ========================================================================== */
+
+/* 1. Main Outer Cards & Major Panels across all pages (Level 1: Light Brown #ebdccb) */
+.bg-white.rounded-3xl,
+.bg-white.rounded-2xl,
+.bg-white.rounded-4xl,
+[class*="rounded-4xl"][class*="bg-"]:not([class*="bg-black"]):not([class*="bg-slate-900"]):not([class*="bg-[#1"]):not([class*="bg-[#0"]),
+[class*="rounded-3xl"][class*="bg-white"],
+[class*="rounded-2xl"][class*="bg-white"],
+[class*="rounded-2xl"][class*="bg-linear"],
+[class*="rounded-2xl"][class*="bg-[#fdfaf5]"],
+[class*="rounded-2xl"][class*="bg-[#f4f7fa]"],
+[class*="rounded-2xl"][class*="bg-[#fcf5f4]"],
+[class*="rounded-2xl"][class*="bg-[#f8f5fc]"],
+.astra-card {
+  background-color: #ebdccb !important;
+  border: 2px solid #4a2e1b !important;
+  box-shadow: 4px 4px 0px 0px #4a2e1b, 0 10px 25px -3px rgba(74, 46, 27, 0.15) !important;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* Interactive Hover and Active states for clickable cards */
+.cursor-pointer.bg-white.rounded-2xl:hover,
+.cursor-pointer[class*="rounded-2xl"][class*="bg-"]:hover,
+.cursor-pointer[class*="rounded-3xl"][class*="bg-"]:hover,
+.cursor-pointer.card-black-border:hover,
+.astra-card.cursor-pointer:hover {
+  transform: translate(-2px, -2px) !important;
+  box-shadow: 6px 6px 0px 0px #4a2e1b, 0 16px 32px -4px rgba(74, 46, 27, 0.2) !important;
+}
+
+.cursor-pointer.bg-white.rounded-2xl:active,
+.cursor-pointer[class*="rounded-2xl"][class*="bg-"]:active,
+.cursor-pointer.card-black-border:active,
+.astra-card.cursor-pointer:active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 2px 2px 0px 0px #4a2e1b, 0 6px 12px -2px rgba(74, 46, 27, 0.15) !important;
+}
+
+/* 2. Prominent Brown Border & Shadow on all inner boxes, containers, parameter blocks */
+div[class*="rounded-xl"][class*="border"]:not(button):not(.w-4):not(.w-6):not(.w-7):not(.w-8):not(.w-9):not(.w-10):not(.w-11):not(.w-12):not(.h-8):not(.h-10):not([class*="pointer-events-none"]):not([class*="cursor-ew-resize"]),
+div[class*="rounded-lg"][class*="border"]:not(button):not(.w-4):not(.w-6):not(.w-7):not(.w-8):not(.w-9):not(.w-10):not(.w-11):not(.w-12):not(.h-8):not(.h-10):not([class*="pointer-events-none"]):not([class*="cursor-ew-resize"]),
+div[class*="rounded-2xl"][class*="bg-slate-50"],
+div[class*="rounded-2xl"][class*="bg-purple-50"],
+div[class*="rounded-2xl"][class*="bg-emerald-50"],
+div[class*="rounded-xl"][class*="bg-slate-50"],
+div[class*="rounded-xl"][class*="bg-emerald-50"],
+div[class*="rounded-xl"][class*="bg-amber-50"],
+div[class*="rounded-xl"][class*="bg-purple-50"],
+div[class*="rounded-xl"][class*="bg-sky-50"],
+div[class*="rounded-xl"][class*="bg-red-50"],
+div[class*="rounded-xl"][class*="bg-slate-900"],
+div[class*="rounded-lg"][class*="bg-red-50"],
+div[class*="rounded-lg"][class*="bg-amber-50"],
+div[class*="rounded-lg"][class*="bg-emerald-50"],
+div[class*="rounded-lg"][class*="bg-white"],
+p[class*="rounded-xl"][class*="border"],
+p[class*="rounded-lg"][class*="border"],
+p[class*="rounded-lg"][class*="bg-white"],
+.astra-box {
+  border: 2px solid #4a2e1b !important;
+  box-shadow: 3px 3px 0px 0px #4a2e1b !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+/* 3. Inset Containers, Boxes & Sub-cards INSIDE Outer Cards (Level 2: Warm Cream #fbf7f0)
+   Ensures inner containers and boxes NEVER match the light brown background of their containing external card */
+[class*="rounded-2xl"] div[class*="rounded-2xl"][class*="bg-slate-50"],
+[class*="rounded-2xl"] div[class*="rounded-xl"][class*="bg-slate-50"],
+[class*="rounded-2xl"] div[class*="rounded-lg"][class*="bg-slate-50"],
+[class*="rounded-3xl"] div[class*="rounded-2xl"][class*="bg-slate-50"],
+[class*="rounded-3xl"] div[class*="rounded-xl"][class*="bg-slate-50"],
+[class*="rounded-3xl"] div[class*="rounded-lg"][class*="bg-slate-50"],
+[class*="rounded-4xl"] div[class*="rounded-2xl"],
+[class*="rounded-2xl"] div[class*="rounded-lg"][class*="bg-white"],
+[class*="rounded-2xl"] div[class*="rounded-xl"][class*="bg-white"],
+[class*="rounded-3xl"] div[class*="rounded-lg"][class*="bg-white"],
+[class*="rounded-3xl"] div[class*="rounded-xl"][class*="bg-white"],
+[class*="rounded-2xl"] div[class*="rounded-lg"][class*="bg-white/"]:not([class*="bg-white/10"]):not([class*="bg-white/20"]),
+[class*="rounded-2xl"] div[class*="rounded-xl"][class*="bg-white/"]:not([class*="bg-white/10"]):not([class*="bg-white/20"]),
+[class*="rounded-3xl"] div[class*="rounded-lg"][class*="bg-white/"]:not([class*="bg-white/10"]):not([class*="bg-white/20"]),
+[class*="rounded-3xl"] div[class*="rounded-xl"][class*="bg-white/"]:not([class*="bg-white/10"]):not([class*="bg-white/20"]),
+[class*="rounded-2xl"] p[class*="rounded-lg"],
+[class*="rounded-2xl"] p[class*="rounded-xl"],
+[class*="rounded-3xl"] p[class*="rounded-lg"],
+[class*="rounded-3xl"] p[class*="rounded-xl"],
+div[class*="h-[360px]"][class*="bg-white"],
+div[class*="h-[260px]"][class*="bg-white"],
+div[class*="h-9"][class*="bg-slate-50"],
+div[class*="inline-flex"][class*="bg-slate-100"],
+div[class*="flex"][class*="bg-slate-100"],
+[class*="rounded-2xl"] input[class*="bg-slate-50"],
+[class*="rounded-2xl"] input[class*="bg-white"],
+[class*="rounded-3xl"] input[class*="bg-slate-50"],
+[class*="rounded-3xl"] input[class*="bg-white"],
+[class*="rounded-2xl"] div[class*="p-3"][class*="rounded-lg"],
+[class*="rounded-3xl"] div[class*="p-3"][class*="rounded-lg"],
+[class*="rounded-2xl"] div[class*="rounded-xl"][class*="border"]:not(button):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-slate-900"]):not([class*="bg-[#1"]):not([class*="bg-[#0"]):not([class*="bg-black"]):not([class*="bg-blue-"]):not([class*="bg-rose-"]):not([class*="cursor-ew-resize"]):not([class*="pointer-events-none"]),
+[class*="rounded-2xl"] div[class*="rounded-lg"][class*="border"]:not(button):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-slate-900"]):not([class*="bg-[#1"]):not([class*="bg-[#0"]):not([class*="bg-black"]):not([class*="bg-blue-"]):not([class*="bg-rose-"]):not([class*="cursor-ew-resize"]):not([class*="pointer-events-none"]),
+[class*="rounded-3xl"] div[class*="rounded-xl"][class*="border"]:not(button):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-slate-900"]):not([class*="bg-[#1"]):not([class*="bg-[#0"]):not([class*="bg-black"]):not([class*="bg-blue-"]):not([class*="bg-rose-"]):not([class*="cursor-ew-resize"]):not([class*="pointer-events-none"]),
+[class*="rounded-3xl"] div[class*="rounded-lg"][class*="border"]:not(button):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-slate-900"]):not([class*="bg-[#1"]):not([class*="bg-[#0"]):not([class*="bg-black"]):not([class*="bg-blue-"]):not([class*="bg-rose-"]):not([class*="cursor-ew-resize"]):not([class*="pointer-events-none"]) {
+  background-color: #fbf7f0 !important;
+}
+
+/* Hover on interactive inner boxes */
+div[class*="rounded-xl"][class*="border"].cursor-pointer:hover,
+div[class*="rounded-2xl"][class*="border"].cursor-pointer:hover,
+div[class*="rounded-lg"][class*="border"].cursor-pointer:hover,
+div[class*="rounded-2xl"][class*="bg-slate-50"].cursor-pointer:hover,
+.astra-box.cursor-pointer:hover {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px 0px #4a2e1b !important;
+  background-color: #ebdccb !important;
+}
+
+/* 4. Action Buttons directly inside Outer Cards (Level 2: Warm Cream #fbf7f0)
+   Ensures buttons inside a card do NOT match the card's light brown background */
+[class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-3xl"] button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-4xl"] a[class*="bg-white"].rounded-xl {
+  background-color: #fbf7f0 !important;
+}
+
+[class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
+[class*="rounded-3xl"] button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
+[class*="rounded-4xl"] a[class*="bg-white"].rounded-xl:hover {
+  background-color: #ebdccb !important;
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px 0px #4a2e1b !important;
+}
+
+/* 5. Elements INSIDE Level 2 Inset Containers (Level 3: Light Brown #ebdccb / Tan #dfcdb7)
+   Ensures buttons, badges, knobs & controls inside an inset container do NOT match that container */
+[class*="rounded-2xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-3xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-2xl"] [class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-4xl"] [class*="rounded-2xl"] div[class*="rounded-full"],
+button div[class*="w-4 h-4"]:not([class*="bg-"]):not([class*="text-white"]) {
+  background-color: #ebdccb !important;
+  border: 1.5px solid #4a2e1b !important;
+}
+
+[class*="rounded-2xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
+[class*="rounded-3xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover {
+  background-color: #dfcdb7 !important;
+}
+
+/* 6. Header Elements (Header is #faf8f5) */
+header {
+  border-bottom: 1px solid #24140b !important;
+  box-shadow: 0 1px 6px rgba(36, 20, 11, 0.05) !important;
+}
+
+header div[class*="bg-white/90"] {
+  background-color: #ebdccb !important;
+}
+header kbd[class*="bg-[#faf8f5]"] {
+  background-color: #fbf7f0 !important;
+}
+header div[class*="font-mono"][class*="bg-white"] {
+  background-color: #ebdccb !important;
+}
+header button:not([class*="bg-sky"]):not([class*="bg-[#fbb973]"]):not([class*="bg-emerald"]):not(aside button) {
+  background-color: #ebdccb !important;
+}
+header button:not([class*="bg-sky"]):not([class*="bg-[#fbb973]"]):not([class*="bg-emerald"]):not(aside button):hover {
+  background-color: #dfcdb7 !important;
+}
+
+/* 7. Buttons inside dedicated colored banners (e.g. alert banner bg-red-600) */
+div[class*="bg-red-600"] button,
+div[class*="bg-sky-900"] button {
+  background-color: #ebdccb !important;
+  color: #4a2e1b !important;
+}
+div[class*="bg-red-600"] button:hover,
+div[class*="bg-sky-900"] button:hover {
+  background-color: #dfcdb7 !important;
+}
+
+/* 8. Selected Card / Highlight State: Rich Warm Tan #dfcdb7 to contrast against both Level 1 and Level 2 */
+.ring-2.ring-\\[\\#1e293b\\]\\/10,
+.ring-2.ring-\\[\\#233446\\]\\/10 {
+  background-color: #dfcdb7 !important;
+  border: 2.5px solid #4a2e1b !important;
+  box-shadow: 6px 6px 0px 0px #4a2e1b, 0 12px 24px -2px rgba(74, 46, 27, 0.2) !important;
+}
+
+/* 9. Specialized Elements: Cathedral Arch Window & Crisis Alert Banner */
+div[class*="aspect-3/4"],
+.aspect-3\/4,
+[class*="aspect-3/4"],
+[class*="rounded-t-full"] {
+  border: 2px solid #4a2e1b !important;
+  box-shadow: 4px 4px 0px 0px #4a2e1b !important;
+}
+
+.animate-alert-ring {
+  border: 2.5px solid #4a2e1b !important;
+  box-shadow: 4px 4px 0px 0px #4a2e1b, 0 10px 25px -3px rgba(220, 38, 38, 0.3) !important;
+}
+
+/* Range slider viewport lens & handles inside scrubber tracks */
+.cursor-ew-resize,
+[class*="cursor-ew-resize"],
+div[class*="cursor-ew-resize"] {
+  border: 2px solid #3b82f6 !important;
+  box-shadow: none !important;
+  background-color: rgba(59, 130, 246, 0.12) !important;
+}
+
+/* 10. General Button Rules across the application */
+button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]) {
+  border: 2px solid #4a2e1b !important;
+  box-shadow: 3px 3px 0px 0px #4a2e1b !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease !important;
+  cursor: pointer !important;
+}
+
+button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):hover {
+  transform: translate(-1px, -1px) !important;
+  box-shadow: 4px 4px 0px 0px #4a2e1b !important;
+}
+
+button:not(aside button):not(.segmented-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 1px 1px 0px 0px #4a2e1b !important;
+}
+
+button:not(aside button):not(.segmented-btn):disabled {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  transform: none !important;
+  box-shadow: 2px 2px 0px 0px #4a2e1b !important;
+}
+
+/* 11. INNER SEGMENTED BUTTONS ONLY:
+   Only the inner buttons inside segmented controls (like the sliding time window 10s/30s/1m/5m/10m
+   and Incident Inspector / Model Benchmarks tabs) must NOT have the border and shadow. */
+.segmented-btn,
+button.segmented-btn,
+div[class*="inline-flex"][class*="rounded-"] button,
+div[class*="p-0.5"][class*="rounded-"] button {
+  border: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* Inactive inner segmented buttons stay clean and flush */
+.segmented-btn:not([class*="bg-"]):not([class*="text-white"]),
+div[class*="inline-flex"][class*="rounded-"] button:not([class*="bg-"]):not([class*="text-white"]),
+div[class*="p-0.5"][class*="rounded-"] button:not([class*="bg-"]):not([class*="text-white"]) {
+  background-color: transparent !important;
+}
+
+/* Active tab inside segmented controls if it used bg-white */
+.segmented-btn[class*="bg-white"] {
+  background-color: #4a2e1b !important;
+  color: #ffffff !important;
+}
+
+/* Waveform SVG chart subtle dashed grid lines against light surface */
+svg line[stroke="#f1f5f9"] {
+  stroke: rgba(74, 46, 27, 0.15) !important;
+}
+
+/* ==========================================================================
+   12. SIDEBAR DESIGN SYSTEM: Light Brown (#ebdccb) with Dark Brown (#452a19) Elements
+   ========================================================================== */
+aside {
+  background-color: #ebdccb !important;
+  border-right: 1px solid #24140b !important;
+  box-shadow: 2px 0 16px rgba(36, 20, 11, 0.08) !important;
+}
+
+aside div[class*="border-b"] {
+  border-bottom: 1px solid #24140b !important;
+}
+
+/* Sidebar navigation buttons */
+aside button:not([class*="bg-[#452a19]"]):not([class*="bg-[#fea619]"]):hover {
+  background-color: #dfcdb7 !important;
+  border-color: #24140b !important;
+  box-shadow: 2px 2px 0px 0px #24140b !important;
+  color: #24140b !important;
+}
+
+aside button:not([class*="bg-[#452a19]"]):not([class*="bg-[#fea619]"]):active {
+  transform: translate(1px, 1px) !important;
+  box-shadow: 1px 1px 0px 0px #24140b !important;
+}
+

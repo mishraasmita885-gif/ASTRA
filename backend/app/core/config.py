@@ -2,9 +2,11 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load .env if present
-env_path = Path(__file__).resolve().parents[2] / ".env"
-load_dotenv(dotenv_path=env_path)
+# Load .env if present (checks backend/.env and root .env)
+backend_env = Path(__file__).resolve().parents[2] / ".env"
+root_env = Path(__file__).resolve().parents[3] / ".env"
+load_dotenv(dotenv_path=backend_env)
+load_dotenv(dotenv_path=root_env)
 
 
 class Settings:

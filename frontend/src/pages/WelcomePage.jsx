@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import CosmicDust from '../components/lightswind/cosmic-dust';
 import { useMission } from '../context/MissionContext';
 import {
   ArrowRight,
@@ -36,25 +35,47 @@ export const WelcomePage = () => {
 
   return (
     <div className="relative min-h-[calc(100vh-6.5rem)] flex flex-col justify-between overflow-hidden rounded-4xl p-6 sm:p-8 lg:p-10 border border-[#e8e2d7] bg-[#faf8f5] shadow-xs select-none">
-      {/* Interactive Cosmic Dust Background Layer */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-auto z-0 opacity-70">
-        <CosmicDust
-          particleCount={130}
-          particleSize={1.6}
-          speedMultiplier={0.85}
-          theme="light"
-        />
-      </div>
 
-      {/* Top Status & Timestamp Row (exact reference) */}
-      <div className="relative z-10 flex items-center justify-end gap-3 pb-3">
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] font-mono font-bold tracking-wider">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>{isCrisis ? 'CRITICAL ALERT' : 'FLIGHT READY'}</span>
+      {/* Top Status & Mission Header Row (enriched to eliminate empty space) */}
+      <div className="relative z-10 flex items-center justify-between gap-4 pb-3 flex-wrap border-b border-[#ebdccb]/60">
+        {/* Left: Mission Identity & Orbital Telemetry */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] text-[#4a2e1b] text-[11px] font-mono font-bold tracking-wider">
+            <img src="/logo.png" alt="ASTRA Logo" className="w-4.5 h-4.5 object-contain shrink-0" style={{ transform: 'scale(1.4)' }} loading="eager" />
+            <span>MISSION: ASTRA-1</span>
+            <span className="text-[#a89c90]">|</span>
+            <span className="text-[#6f675e]">LEO 540 KM SSO</span>
+          </div>
+          <div className="hidden md:flex items-center gap-2.5 text-[11px] font-mono text-[#8c827a]">
+            <span>PASS #42</span>
+            <span>•</span>
+            <span>ISTRAC BENGALURU</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              CARRIER LOCK -82 dBm
+            </span>
+          </div>
         </div>
-        <span className="font-mono text-xs text-[#8c827a] font-medium tracking-wider">
-          {currentTimestamp}
-        </span>
+
+        {/* Right: Live Flight Readiness & Timestamp */}
+        <div className="flex items-center gap-3">
+          <div
+            className={`flex items-center gap-2 px-3 py-1 rounded-full border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] text-[11px] font-mono font-bold tracking-wider transition-all ${
+              isCrisis ? 'bg-red-100 text-red-900' : 'bg-[#ebdccb] text-[#24140b]'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isCrisis ? 'bg-red-600' : 'bg-emerald-500'
+              } animate-pulse`}
+            />
+            <span>{isCrisis ? 'CRITICAL ALERT' : 'FLIGHT READY'}</span>
+          </div>
+          <span className="font-mono text-xs text-[#8c827a] font-medium tracking-wider">
+            {currentTimestamp}
+          </span>
+        </div>
       </div>
 
       {/* Main 3-Column Hero Section */}
@@ -103,27 +124,37 @@ export const WelcomePage = () => {
             </button>
           </div>
 
-          {/* Quote Section */}
+          {/* Quote Section & Mission Feature Pills */}
           <div className="mt-8 pt-2">
             <div className="flex items-center gap-2 text-xs font-serif italic text-[#6f675e]">
               <span className="w-4 h-px bg-[#d8cebe]" />
               <span>“Intelligence beyond orbit.”</span>
             </div>
-            <div className="font-mono text-[10px] tracking-widest text-[#a89c90] uppercase mt-1 pl-6">
-              ASTRA • AI FOR A SAFER TOMORROW
+            <div className="font-mono text-[10px] tracking-widest text-[#a89c90] uppercase mt-1 pl-6 flex items-center gap-1.5">
+              <img src="/logo.png" alt="ASTRA Logo" className="w-5 h-5 object-contain shrink-0" style={{ transform: 'scale(1.4)' }} loading="eager" />
+              <span>ASTRA • AI FOR A SAFER TOMORROW</span>
+            </div>
+
+            {/* Quick Feature Badges (styled with #ebdccb fill, #4a2e1b border, and tactile offset shadow) */}
+            <div className="flex flex-wrap items-center gap-2.5 mt-4 pl-6">
+              {['Real-time FDIR', 'Zero-shot Anomalies', 'Autonomous Reroute', 'Gemini AI Co-Pilot'].map((tag) => (
+                <span
+                  key={tag}
+                  className="px-3 py-1.5 rounded-lg bg-[#ebdccb] text-[#4a2e1b] font-mono text-[10px] font-bold tracking-wide border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] hover:-translate-y-0.5 hover:shadow-[2.5px_2.5px_0px_0px_#4a2e1b] hover:bg-[#dfcdb7] transition-all cursor-default inline-flex items-center gap-1.5"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#c25e2e]" />
+                  <span>{tag}</span>
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Center Column: Cathedral Arch Window Satellite */}
-        <div className="lg:col-span-4 flex items-center justify-center relative px-2">
+        {/* Center Column: Cathedral Arch Window Satellite with Live Viewfinder HUD */}
+        <div className="lg:col-span-4 flex flex-col items-center justify-center relative px-2">
           <div className="relative w-full max-w-85 sm:max-w-92.5">
-            {/* Ambient accent dots along perimeter (matching reference) */}
-            <div className="absolute -top-2 left-6 w-2 h-2 rounded-full bg-[#c25e2e]/50" />
-            <div className="absolute top-1/2 -right-3 w-2 h-2 rounded-full bg-[#c25e2e]/60" />
-
             {/* Arched Architectural Window */}
-            <div className="w-full aspect-3/4 rounded-t-full rounded-b-2xl overflow-hidden shadow-2xl relative bg-[#0b1018] group border border-[#e5dfd5]">
+            <div className="w-full aspect-3/4 rounded-t-full rounded-b-2xl overflow-hidden relative bg-[#0b1018] group border-2 border-[#4a2e1b] shadow-[4px_4px_0px_0px_#4a2e1b] hover:-translate-y-1 hover:shadow-[6px_6px_0px_0px_#4a2e1b] transition-all duration-300">
               <img
                 src="/spacecraft_arch.jpg"
                 alt="ASTRA Spacecraft in Orbit"
@@ -133,15 +164,31 @@ export const WelcomePage = () => {
               {/* Gentle ambient lighting blend */}
               <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
             </div>
+
+            {/* Quick Orbital Telemetry Trio beneath Arch Window (fills center void) */}
+            <div className="grid grid-cols-3 gap-2 mt-3 w-full">
+              <div className="p-2 rounded-xl bg-[#ebdccb] border border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] text-center">
+                <div className="text-[9px] font-mono text-[#73533e] uppercase tracking-wider font-semibold">VELOCITY</div>
+                <div className="text-xs font-mono font-bold text-[#1a1816]">7.61 km/s</div>
+              </div>
+              <div className="p-2 rounded-xl bg-[#ebdccb] border border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] text-center">
+                <div className="text-[9px] font-mono text-[#73533e] uppercase tracking-wider font-semibold">INCLINATION</div>
+                <div className="text-xs font-mono font-bold text-[#1a1816]">97.4° SSO</div>
+              </div>
+              <div className="p-2 rounded-xl bg-[#ebdccb] border border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] text-center">
+                <div className="text-[9px] font-mono text-[#73533e] uppercase tracking-wider font-semibold">SOLAR FLUX</div>
+                <div className="text-xs font-mono font-bold text-[#1a1816]">1361 W/m²</div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Vertical Metrics with Curated Icons (exact reference) */}
-        <div className="lg:col-span-3 flex flex-col justify-center items-start lg:items-end text-left lg:text-right gap-6 lg:pl-6">
+        {/* Right Column: Vertical Metrics with Curated Icons & Micro-Telemetry */}
+        <div className="lg:col-span-3 flex flex-col justify-center items-start lg:items-end text-left lg:text-right gap-5 lg:pl-6">
           {/* Metric 1 */}
-          <div className="flex items-center lg:flex-row-reverse gap-3.5 group">
-            <div className="w-10 h-10 rounded-full bg-white border border-[#e5dfd5] flex items-center justify-center text-[#2a2725] shadow-2xs group-hover:scale-110 transition-transform">
-              <Activity className="w-5 h-5 text-[#2a2725]" />
+          <div className="flex items-center lg:flex-row-reverse gap-3.5 group cursor-pointer">
+            <div className="w-11 h-11 rounded-full bg-[#f8f5ee] border-2 border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#eee8dc] group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_0px_#4a2e1b] transition-all duration-200 shrink-0">
+              <Activity className="w-5 h-5 text-[#4a2e1b]" />
             </div>
             <div className="flex flex-col">
               <span className="font-sans font-bold text-3xl sm:text-4xl text-[#1a1816] tracking-tight leading-none">
@@ -150,13 +197,16 @@ export const WelcomePage = () => {
               <span className="font-mono text-[10px] tracking-widest text-[#8c827a] uppercase mt-1 font-semibold">
                 TELEMETRY INTEGRITY
               </span>
+              <span className="font-mono text-[9px] text-emerald-700 tracking-wide mt-0.5">
+                ● 128 Channels Validated
+              </span>
             </div>
           </div>
 
           {/* Metric 2 */}
-          <div className="flex items-center lg:flex-row-reverse gap-3.5 group">
-            <div className="w-10 h-10 rounded-full bg-white border border-[#e5dfd5] flex items-center justify-center text-[#2a2725] shadow-2xs group-hover:scale-110 transition-transform">
-              <Layers className="w-5 h-5 text-[#2a2725]" />
+          <div className="flex items-center lg:flex-row-reverse gap-3.5 group cursor-pointer">
+            <div className="w-11 h-11 rounded-full bg-[#f8f5ee] border-2 border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#eee8dc] group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_0px_#4a2e1b] transition-all duration-200 shrink-0">
+              <Layers className="w-5 h-5 text-[#4a2e1b]" />
             </div>
             <div className="flex flex-col">
               <span className="font-sans font-bold text-3xl sm:text-4xl text-[#1a1816] tracking-tight leading-none">
@@ -165,13 +215,16 @@ export const WelcomePage = () => {
               <span className="font-mono text-[10px] tracking-widest text-[#8c827a] uppercase mt-1 font-semibold">
                 ORBITAL REVOLUTIONS
               </span>
+              <span className="font-mono text-[9px] text-[#8c827a] tracking-wide mt-0.5">
+                Rev #4822 in progress
+              </span>
             </div>
           </div>
 
           {/* Metric 3 */}
-          <div className="flex items-center lg:flex-row-reverse gap-3.5 group">
-            <div className="w-10 h-10 rounded-full bg-white border border-[#e5dfd5] flex items-center justify-center text-[#2a2725] shadow-2xs group-hover:scale-110 transition-transform">
-              <Clock className="w-5 h-5 text-[#2a2725]" />
+          <div className="flex items-center lg:flex-row-reverse gap-3.5 group cursor-pointer">
+            <div className="w-11 h-11 rounded-full bg-[#f8f5ee] border-2 border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#eee8dc] group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_0px_#4a2e1b] transition-all duration-200 shrink-0">
+              <Clock className="w-5 h-5 text-[#4a2e1b]" />
             </div>
             <div className="flex flex-col">
               <span className="font-sans font-bold text-3xl sm:text-4xl text-[#1a1816] tracking-tight leading-none">
@@ -180,28 +233,34 @@ export const WelcomePage = () => {
               <span className="font-mono text-[10px] tracking-widest text-[#8c827a] uppercase mt-1 font-semibold">
                 REAL-TIME BUS STREAM
               </span>
+              <span className="font-mono text-[9px] text-[#8c827a] tracking-wide mt-0.5">
+                0.0 ms jitter buffer
+              </span>
             </div>
           </div>
 
           {/* Metric 4 */}
-          <div className="flex items-center lg:flex-row-reverse gap-3.5 group">
-            <div className="w-10 h-10 rounded-full bg-white border border-[#e5dfd5] flex items-center justify-center text-[#2a2725] shadow-2xs group-hover:scale-110 transition-transform">
-              <Zap className="w-5 h-5 text-[#2a2725]" />
+          <div className="flex items-center lg:flex-row-reverse gap-3.5 group cursor-pointer">
+            <div className="w-11 h-11 rounded-full bg-[#f8f5ee] border-2 border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#eee8dc] group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_0px_#4a2e1b] transition-all duration-200 shrink-0">
+              <Zap className="w-5 h-5 text-[#4a2e1b]" />
             </div>
             <div className="flex flex-col">
               <span className="font-sans font-bold text-3xl sm:text-4xl text-[#1a1816] tracking-tight leading-none">
                 &lt; 1.2s
               </span>
               <span className="font-mono text-[10px] tracking-widest text-[#8c827a] uppercase mt-1 font-semibold">
-                GEMINI REASONING
+                NEURAL AI REASONING
+              </span>
+              <span className="font-mono text-[9px] text-[#7c3aed] tracking-wide mt-0.5">
+                Gemini 2.0 Flash engine
               </span>
             </div>
           </div>
 
           {/* Metric 5 */}
-          <div className="flex items-center lg:flex-row-reverse gap-3.5 group">
-            <div className="w-10 h-10 rounded-full bg-white border border-[#e5dfd5] flex items-center justify-center text-[#2a2725] shadow-2xs group-hover:scale-110 transition-transform">
-              <Radio className="w-5 h-5 text-[#2a2725]" />
+          <div className="flex items-center lg:flex-row-reverse gap-3.5 group cursor-pointer">
+            <div className="w-11 h-11 rounded-full bg-[#f8f5ee] border-2 border-[#4a2e1b] shadow-[2px_2px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#eee8dc] group-hover:-translate-y-0.5 group-hover:shadow-[3px_3px_0px_0px_#4a2e1b] transition-all duration-200 shrink-0">
+              <Radio className="w-5 h-5 text-[#4a2e1b]" />
             </div>
             <div className="flex flex-col">
               <span className="font-sans font-bold text-3xl sm:text-4xl text-[#1a1816] tracking-tight leading-none">
@@ -209,6 +268,9 @@ export const WelcomePage = () => {
               </span>
               <span className="font-mono text-[10px] tracking-widest text-[#8c827a] uppercase mt-1 font-semibold">
                 DSN S-BAND LOCK
+              </span>
+              <span className="font-mono text-[9px] text-emerald-700 tracking-wide mt-0.5">
+                ● High Gain Active
               </span>
             </div>
           </div>
@@ -247,7 +309,7 @@ export const WelcomePage = () => {
               </p>
             </div>
             <div className="mt-4 flex justify-end">
-              <div className="w-7 h-7 rounded-full bg-white border border-[#e5dfd5] flex items-center justify-center text-[#1a1816] group-hover:bg-[#c25e2e] group-hover:text-white group-hover:border-[#c25e2e] transition-all">
+              <div className="w-7 h-7 rounded-full bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#c25e2e] group-hover:text-white group-hover:border-[#4a2e1b] transition-all">
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
@@ -270,7 +332,7 @@ export const WelcomePage = () => {
               </p>
             </div>
             <div className="mt-4 flex justify-end">
-              <div className="w-7 h-7 rounded-full bg-white border border-[#e3ebf2] flex items-center justify-center text-[#1a1816] group-hover:bg-[#2563eb] group-hover:text-white group-hover:border-[#2563eb] transition-all">
+              <div className="w-7 h-7 rounded-full bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#2563eb] group-hover:text-white group-hover:border-[#4a2e1b] transition-all">
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
@@ -293,7 +355,7 @@ export const WelcomePage = () => {
               </p>
             </div>
             <div className="mt-4 flex justify-end">
-              <div className="w-7 h-7 rounded-full bg-white border border-[#f5e6e4] flex items-center justify-center text-[#1a1816] group-hover:bg-[#dc2626] group-hover:text-white group-hover:border-[#dc2626] transition-all">
+              <div className="w-7 h-7 rounded-full bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#dc2626] group-hover:text-white group-hover:border-[#4a2e1b] transition-all">
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
@@ -309,14 +371,14 @@ export const WelcomePage = () => {
                 <Sparkles className="w-6 h-6" />
               </div>
               <h3 className="font-sans font-bold text-sm text-[#1a1816] group-hover:text-[#7c3aed] transition-colors">
-                Gemini AI Assistant
+                AI Mission Copilot
               </h3>
               <p className="text-xs text-[#736a60] font-sans mt-1 leading-relaxed">
                 Natural language mission intelligence.
               </p>
             </div>
             <div className="mt-4 flex justify-end">
-              <div className="w-7 h-7 rounded-full bg-white border border-[#eee7f7] flex items-center justify-center text-[#1a1816] group-hover:bg-[#7c3aed] group-hover:text-white group-hover:border-[#7c3aed] transition-all">
+              <div className="w-7 h-7 rounded-full bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] flex items-center justify-center text-[#4a2e1b] group-hover:bg-[#7c3aed] group-hover:text-white group-hover:border-[#4a2e1b] transition-all">
                 <ArrowRight className="w-3.5 h-3.5" />
               </div>
             </div>
@@ -326,6 +388,7 @@ export const WelcomePage = () => {
         {/* Footer Bar (exact reference) */}
         <div className="flex items-center justify-between pt-5 mt-3 text-[11px] font-mono text-[#8c827a]">
           <div className="flex items-center gap-2">
+            <img src="/logo.png" alt="ASTRA Logo" className="w-5.5 h-5.5 object-contain shrink-0" style={{ transform: 'scale(1.4)' }} loading="eager" />
             <span className="font-bold text-[#1a1816]">ASTRA</span>
             <span>v1.0.0</span>
           </div>

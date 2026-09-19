@@ -49,9 +49,10 @@ export const SubsystemsPage = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="font-mono text-xs text-[#736f68] bg-white border border-[#e6e1d7] px-3 py-1.5 rounded-full">
-            Status: {isCrisis ? '1 CRITICAL • 1 WARNING • 2 NOMINAL' : '4/4 ALL SUBSYSTEMS NOMINAL'}
-          </span>
+          <div className="flex items-center gap-2 font-mono text-xs font-bold text-[#24140b] bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] px-3.5 py-1.5 rounded-full">
+            <span className={`w-2 h-2 rounded-full ${isCrisis ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <span>Status: {isCrisis ? '1 CRITICAL • 1 WARNING • 2 NOMINAL' : '4/4 ALL SUBSYSTEMS NOMINAL'}</span>
+          </div>
         </div>
       </div>
 

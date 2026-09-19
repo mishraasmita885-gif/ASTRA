@@ -63,91 +63,101 @@ export const MissionProvider = ({ children }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const selectedAnomalyIdRef = useRef(selectedAnomalyId);
+  useEffect(() => {
+    selectedAnomalyIdRef.current = selectedAnomalyId;
+  }, [selectedAnomalyId]);
+
   // Poll initial backend health and sync events
   const syncWithBackend = useCallback(async () => {
-    const health = await fetchHealth();
-    if (health) {
-      setBackendHealth(health);
-      setIsBackendConnected(true);
-      const backendEvents = await fetchEvents();
-      if (backendEvents && backendEvents.length > 0) {
-        // Transform backend events into UI-friendly anomaly format while preserving original fields
-        const formatted = backendEvents.map((evt, idx) => ({
-          id: evt.event_id,
-          number: `ANOMALY #${String(idx + 1).padStart(3, '0')}`,
-          title: `Channel ${evt.channel} Step Change [${evt.start_timestamp} → ${evt.end_timestamp}]`,
-          subsystem: evt.channel === 'P-3' ? 'INSTRUMENTATION / POWER' : 'SUBSYSTEM',
-          severity: evt.gemini_analysis?.severity || (evt.duration > 500 ? 'CRITICAL' : 'HIGH'),
-          status: evt.status,
-          timestamp: new Date(evt.created_at).toLocaleTimeString(),
-          detectedAt: `Step ${evt.start_timestamp}`,
-          mlScore: evt.anomaly_score,
-          mlConfidence: evt.gemini_analysis ? `${Math.round(evt.gemini_analysis.confidence * 100)}%` : '91%',
-          detectionMethod: 'P-3 Telemetry Change Detection (Threshold 0.3889)',
-          summary: evt.gemini_analysis?.diagnosis || `Numerical change detector triggered at step ${evt.start_timestamp} with duration ${evt.duration}.`,
-          rawEvent: evt,
-          delta: {
-            solar: evt.anomaly_score > 0.4 ? '-74.2%' : '-2.1%',
-            voltage: evt.anomaly_score > 0.4 ? '-6.8 V' : '-0.2 V',
-            temp: evt.anomaly_score > 0.4 ? '+42.5 °C' : '+0.5 °C',
-            discharge: '-12.4 A',
-          },
-          rulesTripped: [
-            { rule: 'P3_CHANGE_DETECTION_THRESHOLD (> 0.3888857)', actual: `${evt.anomaly_score.toFixed(4)}`, tripped: true },
-            { rule: 'EVENT_PERSISTENCE_BUFFER (15-pt buffer, 250-pt merge)', actual: `${evt.duration} cycles`, tripped: true },
-          ],
-          geminiDiagnosis: evt.gemini_analysis ? {
-            model: 'Gemini 2.5 Flash Reasoner',
-            rootCause: evt.gemini_analysis.diagnosis,
-            survivalProbability: 78,
-            timeToExhaustion: '24m 10s',
-            evidence: evt.gemini_analysis.evidence,
-            recommendedAction: evt.gemini_analysis.recommendation,
-            operator_approval_required: evt.gemini_analysis.operator_approval_required,
-          } : null,
-          commands: [
-            {
-              id: `CMD-P3-SAFE-${evt.event_id}`,
-              name: `CMD_SAFE_P3: Safe-State Channel ${evt.channel}`,
-              desc: 'Transfer sensor channel to redundant telemetry bus and isolate secondary load.',
-              severity: 'CRITICAL',
-              status: evt.operator_decision ? (evt.operator_decision.approved ? 'APPROVED' : 'REJECTED') : 'PENDING',
-              subsystem: 'POWER / INSTRUMENTATION',
-              uplinkEst: '1.2s',
+    try {
+      const health = await fetchHealth();
+      if (health) {
+        setBackendHealth(health);
+        setIsBackendConnected(true);
+        const backendEvents = await fetchEvents();
+        if (backendEvents && backendEvents.length > 0) {
+          // Transform backend events into UI-friendly anomaly format while preserving original fields
+          const formatted = backendEvents.map((evt, idx) => ({
+            id: evt.event_id,
+            number: `ANOMALY #${String(idx + 1).padStart(3, '0')}`,
+            title: `Channel ${evt.channel} Step Change [${evt.start_timestamp} → ${evt.end_timestamp}]`,
+            subsystem: evt.channel === 'P-3' ? 'INSTRUMENTATION / POWER' : 'SUBSYSTEM',
+            severity: evt.gemini_analysis?.severity || (evt.duration > 500 ? 'CRITICAL' : 'HIGH'),
+            status: evt.status,
+            timestamp: new Date(evt.created_at).toLocaleTimeString(),
+            detectedAt: `Step ${evt.start_timestamp}`,
+            mlScore: evt.anomaly_score,
+            mlConfidence: evt.gemini_analysis ? `${Math.round(evt.gemini_analysis.confidence * 100)}%` : '91%',
+            detectionMethod: 'P-3 Telemetry Change Detection (Threshold 0.3889)',
+            summary: evt.gemini_analysis?.diagnosis || `Numerical change detector triggered at step ${evt.start_timestamp} with duration ${evt.duration}.`,
+            rawEvent: evt,
+            delta: {
+              solar: evt.anomaly_score > 0.4 ? '-74.2%' : '-2.1%',
+              voltage: evt.anomaly_score > 0.4 ? '-6.8 V' : '-0.2 V',
+              temp: evt.anomaly_score > 0.4 ? '+42.5 °C' : '+0.5 °C',
+              discharge: '-12.4 A',
             },
-            {
-              id: `CMD-P3-DIAG-${evt.event_id}`,
-              name: 'CMD_DIAG_ISOLATE: Run Self-Test Sequence',
-              desc: 'Execute calibrated 60-second self-diagnostic routine on instrumentation ADC.',
-              severity: 'HIGH',
-              status: evt.operator_decision?.approved ? 'APPROVED' : 'PENDING',
-              subsystem: 'INSTRUMENTATION',
-              uplinkEst: '2.4s',
-            }
-          ]
-        }));
-        setAnomalies(formatted);
-        if (!selectedAnomalyId || selectedAnomalyId === 'INC-2026-088') {
-          setSelectedAnomalyId(formatted[0].id);
+            rulesTripped: [
+              { rule: 'P3_CHANGE_DETECTION_THRESHOLD (> 0.3888857)', actual: `${evt.anomaly_score.toFixed(4)}`, tripped: true },
+              { rule: 'EVENT_PERSISTENCE_BUFFER (15-pt buffer, 250-pt merge)', actual: `${evt.duration} cycles`, tripped: true },
+            ],
+            geminiDiagnosis: evt.gemini_analysis ? {
+              model: 'ASTRA Neural AI Reasoner',
+              rootCause: evt.gemini_analysis.diagnosis,
+              survivalProbability: 78,
+              timeToExhaustion: '24m 10s',
+              evidence: evt.gemini_analysis.evidence,
+              recommendedAction: evt.gemini_analysis.recommendation,
+              operator_approval_required: evt.gemini_analysis.operator_approval_required,
+            } : null,
+            commands: [
+              {
+                id: `CMD-P3-SAFE-${evt.event_id}`,
+                name: `CMD_SAFE_P3: Safe-State Channel ${evt.channel}`,
+                desc: 'Transfer sensor channel to redundant telemetry bus and isolate secondary load.',
+                severity: 'CRITICAL',
+                status: evt.operator_decision ? (evt.operator_decision.approved ? 'APPROVED' : 'REJECTED') : 'PENDING',
+                subsystem: 'POWER / INSTRUMENTATION',
+                uplinkEst: '1.2s',
+              },
+              {
+                id: `CMD-P3-DIAG-${evt.event_id}`,
+                name: 'CMD_DIAG_ISOLATE: Run Self-Test Sequence',
+                desc: 'Execute calibrated 60-second self-diagnostic routine on instrumentation ADC.',
+                severity: 'HIGH',
+                status: evt.operator_decision?.approved ? 'APPROVED' : 'PENDING',
+                subsystem: 'INSTRUMENTATION',
+                uplinkEst: '2.4s',
+              }
+            ]
+          }));
+          setAnomalies(formatted);
+          if (!selectedAnomalyIdRef.current || !formatted.some((f) => f.id === selectedAnomalyIdRef.current)) {
+            setSelectedAnomalyId(formatted[0].id);
+          }
         }
+        const logs = await fetchAuditLog(30);
+        if (logs && logs.length > 0) {
+          setAuditLog(logs.map((l) => ({
+            id: l.id,
+            time: l.time,
+            type: l.type,
+            message: l.event,
+          })));
+        }
+      } else {
+        setIsBackendConnected(false);
       }
-
-      const logs = await fetchAuditLog(30);
-      if (logs && logs.length > 0) {
-        setAuditLog(logs.map((l) => ({
-          id: l.id,
-          time: l.time,
-          type: l.type,
-          message: l.event,
-        })));
-      }
-    } else {
-      setIsBackendConnected(false);
+    } catch (err) {
+      console.warn('Backend sync failed:', err);
     }
-  }, [selectedAnomalyId]);
+  }, []);
 
   useEffect(() => {
     syncWithBackend();
+    const interval = setInterval(syncWithBackend, 3000);
+    return () => clearInterval(interval);
   }, [syncWithBackend]);
 
   // Live WebSocket Connection to FastAPI backend
@@ -164,6 +174,7 @@ export const MissionProvider = ({ children }) => {
         ws.onopen = () => {
           if (isCleanedUp) return;
           setIsBackendConnected(true);
+          syncWithBackend();
           console.log('[ASTRA WS] Connected to live telemetry backend:', wsUrl);
         };
 
@@ -269,19 +280,21 @@ export const MissionProvider = ({ children }) => {
 
   // Request Gemini Reasoning Analysis for an Event
   const triggerGeminiAnalysis = async (eventId) => {
+    const targetId = eventId || selectedAnomalyId || (anomalies[0] && anomalies[0].id) || 'ASTRA-P3-0001';
     setIsAnalyzing(true);
     try {
-      const res = await analyzeEvent(eventId);
+      const res = await analyzeEvent(targetId);
       if (res && res.analysis) {
-        setAnomalies((prev) =>
-          prev.map((anm) =>
-            anm.id === eventId
+        setAnomalies((prev) => {
+          const list = prev && prev.length > 0 ? prev : INITIAL_ANOMALIES;
+          return list.map((anm) =>
+            anm.id === targetId
               ? {
                   ...anm,
                   status: 'UNDER_REVIEW',
                   mlConfidence: `${Math.round(res.analysis.confidence * 100)}%`,
                   geminiDiagnosis: {
-                    model: 'Gemini 2.5 Flash Reasoner',
+                    model: 'ASTRA Neural AI Reasoner',
                     rootCause: res.analysis.diagnosis,
                     survivalProbability: 80,
                     timeToExhaustion: '22m 30s',
@@ -291,8 +304,8 @@ export const MissionProvider = ({ children }) => {
                   },
                 }
               : anm
-          )
-        );
+          );
+        });
         const logs = await fetchAuditLog(30);
         if (logs) {
           setAuditLog(logs.map((l) => ({ id: l.id, time: l.time, type: l.type, message: l.event })));
@@ -395,7 +408,10 @@ export const MissionProvider = ({ children }) => {
     switchSimulationMode('nasa_p3', startIndex);
   };
 
-  const selectedAnomaly = anomalies.find((a) => a.id === selectedAnomalyId) || anomalies[0];
+  const selectedAnomaly =
+    anomalies.find((a) => a.id === selectedAnomalyId) ||
+    anomalies[0] ||
+    INITIAL_ANOMALIES[0];
 
   return (
     <MissionContext.Provider

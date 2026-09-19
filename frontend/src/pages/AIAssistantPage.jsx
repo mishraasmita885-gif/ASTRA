@@ -39,7 +39,7 @@ export const AIAssistantPage = () => {
           <div className="flex items-center gap-2">
             <Bot className="w-6 h-6 text-purple-700" />
             <h1 className="font-display font-bold text-2xl text-[#161514]">
-              ASTRA AI Mission Assistant & Gemini Reasoner
+              ASTRA AI Mission Assistant & Neural Reasoner
             </h1>
           </div>
           <p className="text-xs font-mono text-[#736f68] mt-0.5">
@@ -56,12 +56,12 @@ export const AIAssistantPage = () => {
             {isAnalyzing ? (
               <>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Running Gemini Engine...</span>
+                <span>Running AI Engine...</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Run Gemini Reasoning</span>
+                <span>Run AI Reasoning</span>
               </>
             )}
           </button>
@@ -88,7 +88,7 @@ export const AIAssistantPage = () => {
           </div>
 
           <div className="flex items-center gap-2 font-mono text-xs text-[#736f68]">
-            <span>Model: {currentAnalysis?.model || 'Gemini 2.5 Flash'}</span>
+            <span>Model: {currentAnalysis?.model || 'ASTRA Neural Reasoner'}</span>
             <span>•</span>
             <span>Channel: {selectedAnomaly?.rawEvent?.channel || 'P-3'}</span>
           </div>
@@ -165,7 +165,7 @@ export const AIAssistantPage = () => {
                   </span>
                   <div className="flex flex-col gap-1 text-xs font-mono">
                     {currentAnalysis.evidence.map((ev, i) => (
-                      <div key={i} className="p-2 rounded bg-white border border-purple-200 flex items-start gap-2">
+                      <div key={i} className="p-2 rounded-lg bg-white border border-purple-200 flex items-start gap-2">
                         <span className="text-purple-600 font-bold">•</span>
                         <span className="text-[#161514]">{ev}</span>
                       </div>

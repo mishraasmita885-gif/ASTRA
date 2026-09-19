@@ -181,15 +181,15 @@ export const MissionOverviewPage = () => {
             <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-[#736f68]">
               Reasoning Engine
             </span>
-            <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 text-purple-800 border border-purple-200 text-xs font-mono font-bold">
-              <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+            <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ebdccb] text-[#24140b] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] text-xs font-mono font-bold">
+              <Sparkles className="w-3.5 h-3.5 text-[#fea619]" />
               ONLINE
             </span>
           </div>
 
           <div className="my-3">
             <div className="font-display font-bold text-2xl text-[#161514] tracking-tight">
-              Gemini 2.5 Flash Reasoner
+              ASTRA Neural AI Reasoner
             </div>
             <p className="text-xs text-[#736f68] mt-1 font-mono">
               {isCrisis ? 'Emergency fault isolation active' : 'Numerical change detection + structured evidence'}
@@ -209,7 +209,8 @@ export const MissionOverviewPage = () => {
           <div className="flex items-center gap-2">
             <Activity className="w-5 h-5 text-[#233446]" />
             <h2 className="font-display font-bold text-lg text-[#161514]">Live Telemetry Matrix</h2>
-            <span className="font-mono text-xs text-[#736f68] bg-slate-100 px-2 py-0.5 rounded-full">
+            <span className="font-mono text-xs font-bold text-[#4a2e1b] bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#c25e2e]" />
               5 Real-time Channels
             </span>
           </div>
@@ -401,7 +402,7 @@ export const MissionOverviewPage = () => {
                 </div>
                 <div>
                   <span className="font-display font-bold text-sm text-[#161514] block">
-                    Gemini AI Assessment
+                    AI Diagnostic Assessment
                   </span>
                   <span className="font-mono text-[10px] text-purple-700">Structured Telemetry Reasoner</span>
                 </div>

@@ -63,24 +63,28 @@ export const AnomalyCenterPage = () => {
             </h1>
           </div>
           <p className="text-xs font-mono text-[#736f68] mt-0.5">
-            P-3 Telemetry Change Detector (Threshold: 0.3889) + Event Logic & Gemini Structured Reasoner
+            P-3 Telemetry Change Detector (Threshold: 0.3889) + Event Logic & Neural AI Reasoner
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex rounded-full bg-slate-100 p-0.5 border border-slate-200 text-xs font-mono">
+          <div className="flex rounded-full bg-[#ebdccb] p-1 border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] text-xs font-mono">
             <button
               onClick={() => setActiveTab('inspector')}
-              className={`px-3 py-1 rounded-full font-semibold transition-all cursor-pointer ${
-                activeTab === 'inspector' ? 'bg-white shadow-xs text-[#161514]' : 'text-[#736f68]'
+              className={`segmented-btn px-3.5 py-1 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'inspector'
+                  ? 'bg-[#452a19] text-[#fbf7f0]'
+                  : 'text-[#5c4a3d] hover:text-[#24140b] bg-transparent'
               }`}
             >
               Incident Inspector
             </button>
             <button
               onClick={() => setActiveTab('benchmarks')}
-              className={`px-3 py-1 rounded-full font-semibold transition-all cursor-pointer ${
-                activeTab === 'benchmarks' ? 'bg-white shadow-xs text-[#161514]' : 'text-[#736f68]'
+              className={`segmented-btn px-3.5 py-1 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'benchmarks'
+                  ? 'bg-[#452a19] text-[#fbf7f0]'
+                  : 'text-[#5c4a3d] hover:text-[#24140b] bg-transparent'
               }`}
             >
               Model Benchmarks
@@ -268,19 +272,19 @@ export const AnomalyCenterPage = () => {
                       Detected: {selectedAnomaly?.detectedAt}
                     </span>
                     <button
-                      onClick={() => triggerGeminiAnalysis(selectedAnomaly.id)}
+                      onClick={() => triggerGeminiAnalysis(selectedAnomaly?.id || selectedAnomalyId || 'ASTRA-P3-0001')}
                       disabled={isAnalyzing}
                       className="px-3 py-1 rounded-full bg-purple-600 hover:bg-purple-700 text-white font-mono text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
                     >
                       {isAnalyzing ? (
                         <>
                           <Loader2 className="w-3 h-3 animate-spin" />
-                          <span>Gemini Reasoning...</span>
+                          <span>AI Reasoning...</span>
                         </>
                       ) : (
                         <>
                           <Sparkles className="w-3 h-3" />
-                          <span>Analyze with Gemini</span>
+                          <span>Analyze with AI</span>
                         </>
                       )}
                     </button>

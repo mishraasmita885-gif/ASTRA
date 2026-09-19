@@ -25,7 +25,7 @@ export const Header = () => {
 
   return (
     <header
-      className={`fixed top-0 right-0 h-16 bg-[#faf8f5]/85 backdrop-blur-md z-30 px-8 flex items-center justify-between border-b border-[#e5e0d4] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`fixed top-0 right-0 h-16 bg-[#ebdccb]/90 backdrop-blur-md z-30 px-8 flex items-center justify-between border-b border-[#24140b] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
         isSidebarCollapsed ? 'left-20' : 'left-64'
       }`}
     >
@@ -49,17 +49,17 @@ export const Header = () => {
       {/* Right Controls: Backend Status, Emergency Action, Bell, Flight Director Profile */}
       <div className="flex items-center gap-3 sm:gap-4 pl-4">
         {/* Backend Online Pill */}
-        <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[11px] font-mono bg-white shadow-2xs">
+        <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full border border-[#24140b] text-[11px] font-mono font-bold bg-[#ebdccb] text-[#24140b] shadow-[1.5px_1.5px_0px_0px_#24140b]">
           <div
             className={`w-2 h-2 rounded-full ${
-              isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
+              isBackendConnected ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'
             }`}
           />
-          <span className="font-semibold text-[#181a20]">
+          <span>
             {isBackendConnected ? 'API :8000 (WS Live)' : 'Backend Reconnecting...'}
           </span>
           {backendHealth?.detector && (
-            <span className="text-[#8c827a] text-[10px]">
+            <span className="text-[#73533e] text-[10px] font-normal">
               • {backendHealth.detector.channel} (Thresh {backendHealth.detector.threshold.toFixed(2)})
             </span>
           )}
@@ -68,10 +68,10 @@ export const Header = () => {
         {/* Quick NASA P-3 Replay Trigger */}
         <button
           onClick={() => playNasaP3Stream(5300)}
-          className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-sky-50 hover:bg-sky-100 text-sky-800 border border-sky-200 font-mono text-[11px] font-semibold transition-all cursor-pointer"
+          className="hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#ebdccb] hover:bg-[#dfcdb7] text-[#24140b] border border-[#24140b] shadow-[1.5px_1.5px_0px_0px_#24140b] font-mono text-[11px] font-bold transition-all cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
           title="Replay NASA P-3 stream leading to event 5400->6656"
         >
-          <Radio className="w-3.5 h-3.5 text-sky-600 animate-pulse" />
+          <Radio className="w-3.5 h-3.5 text-[#24140b] animate-pulse" />
           <span>NASA P-3 Replay</span>
         </button>
 

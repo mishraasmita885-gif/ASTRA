@@ -228,7 +228,7 @@ export const SynchronizedWaveformChart = ({
               <button
                 key={win}
                 onClick={() => setTimeWindow(win)}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
+                className={`segmented-btn px-2.5 py-1 rounded-lg transition-all cursor-pointer ${
                   timeWindow === win
                     ? 'bg-[#1e293b] text-white font-semibold shadow-xs'
                     : 'text-[#64748b] hover:text-[#161514]'

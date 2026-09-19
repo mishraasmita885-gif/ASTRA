@@ -38,7 +38,7 @@ def health_check():
         },
         "gemini": {
             "configured": gemini_service.is_configured(),
-            "model": gemini_service.model_name
+            "model": getattr(gemini_service, "model_name", getattr(gemini_service, "configured_model", "gemini-3.5-flash"))
         },
         "nasa_p3_dataset_loaded": telemetry_service.p3_data is not None,
         "total_p3_points": telemetry_service.p3_total_points

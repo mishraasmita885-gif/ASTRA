@@ -100,13 +100,13 @@ export const SimulationPage = () => {
           {isCrisis || telemetry.mode === 'nasa_p3' ? (
             <button
               onClick={resetToNominal}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-display text-xs font-bold uppercase tracking-wider shadow-xs cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-[#ebdccb] hover:bg-[#dfcdb7] text-[#24140b] border border-[#4a2e1b] font-mono text-xs font-bold uppercase tracking-wider shadow-[1.5px_1.5px_0px_0px_#4a2e1b] cursor-pointer transition-all active:translate-x-0.5 active:translate-y-0.5"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3.5 h-3.5 text-emerald-700" />
               <span>Reset Nominal Stream</span>
             </button>
           ) : (
-            <span className="px-3 py-1.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-mono font-bold flex items-center gap-1.5">
+            <span className="px-3.5 py-1.5 rounded-full bg-[#ebdccb] text-[#24140b] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] text-xs font-mono font-bold flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               TESTBED ARMED & READY
             </span>
