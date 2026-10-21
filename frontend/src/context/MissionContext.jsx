@@ -888,31 +888,6 @@ export const MissionProvider = ({ children }) => {
     switchSimulationMode('nasa_p3', startIndex);
   };
 
-  const switchActiveChannel = useCallback(async (channel) => {
-    const cleanCh = channel.trim().toUpperCase();
-    setActiveChannel(cleanCh);
-    try {
-      await switchChannel(cleanCh);
-    } catch (e) {
-      console.warn('Switch channel API warning:', e);
-    }
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        action: 'set_channel',
-        channel: cleanCh,
-      }));
-    }
-    setAuditLog((prev) => [
-      {
-        id: `evt_local_${Date.now()}`,
-        time: new Date().toLocaleTimeString(),
-        type: 'COMMAND_UPLINK',
-        message: `STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel ${cleanCh}.`,
-      },
-      ...prev,
-    ]);
-  }, []);
-
   const switchSpacecraft = useCallback(async (spacecraftId) => {
     const cleanId = spacecraftId.trim().toUpperCase();
     setActiveSpacecraftState(cleanId);
