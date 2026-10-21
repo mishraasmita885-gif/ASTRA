@@ -114,6 +114,168 @@
   },
   "audit_log": [
     {
+      "id": "evt_1792567817531",
+      "time": "13:00:17",
+      "timestamp_epoch": 1792567817.531588,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567817180",
+      "time": "13:00:17",
+      "timestamp_epoch": 1792567817.1802294,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567805790",
+      "time": "13:00:05",
+      "timestamp_epoch": 1792567805.7908704,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-GAMMA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-GAMMA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567804808",
+      "time": "13:00:04",
+      "timestamp_epoch": 1792567804.808087,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-GAMMA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-GAMMA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567799283",
+      "time": "12:59:59",
+      "timestamp_epoch": 1792567799.2830641,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567799230",
+      "time": "12:59:59",
+      "timestamp_epoch": 1792567799.2304893,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567788754",
+      "time": "12:59:48",
+      "timestamp_epoch": 1792567788.754687,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567788725",
+      "time": "12:59:48",
+      "timestamp_epoch": 1792567788.7258525,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567779632",
+      "time": "12:59:39",
+      "timestamp_epoch": 1792567779.632829,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567778791",
+      "time": "12:59:38",
+      "timestamp_epoch": 1792567778.7912972,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567777089",
+      "time": "12:59:37",
+      "timestamp_epoch": 1792567777.089186,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567776482",
+      "time": "12:59:36",
+      "timestamp_epoch": 1792567776.4824014,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567749487",
+      "time": "12:59:09",
+      "timestamp_epoch": 1792567749.487963,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567749367",
+      "time": "12:59:09",
+      "timestamp_epoch": 1792567749.3672953,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567741667",
+      "time": "12:59:01",
+      "timestamp_epoch": 1792567741.6677213,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567740482",
+      "time": "12:59:00",
+      "timestamp_epoch": 1792567740.4824755,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567612399",
+      "time": "12:56:52",
+      "timestamp_epoch": 1792567612.3999999,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792567611350",
+      "time": "12:56:51",
+      "timestamp_epoch": 1792567611.3501124,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
       "id": "evt_1792567181716",
       "time": "12:49:41",
       "timestamp_epoch": 1792567181.7161877,

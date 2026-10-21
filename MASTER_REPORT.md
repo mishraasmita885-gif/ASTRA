@@ -105,43 +105,70 @@ LAYER 3: HUMAN ACTION (Fix the Problem Safely)
                           |
                           v
 +------------------------------------------------------------------+
-|               FRONTEND  (React Web App)                          |
+|               FRONTEND  (React 19 + Vite Web App)                |
 |                                                                  |
-|  [Welcome] [Mission Overview] [Live Telemetry] [Anomaly Center] |
-|  [Subsystems] [AI Assistant] [Simulation] [Event Log]           |
+|  [Welcome] [Mission Overview] [Fleet Mesh] [Live Telemetry]      |
+|  [Anomaly Center] [Subsystems] [AI Assistant] [Simulation]       |
+|  [Event Log] [Mission Reports] [Settings] [Command Palette]      |
 |                                                                  |
-|      [WebSocket - real-time]      [REST API - requests]         |
+|      [WebSocket - real-time]      [REST API - requests]          |
 +------------------------------------------------------------------+
               |                              |
               v                              v
 +------------------------------------------------------------------+
-|           BACKEND  (Python FastAPI Server)                       |
+|           BACKEND  (Python FastAPI Server + SQLite WAL)          |
 |                                                                  |
-|  WebSocket /ws/telemetry (pushes data every 1.2 sec)            |
-|  REST: /api/v1/telemetry/snapshot                               |
-|  REST: /api/v1/events                                           |
-|  REST: /api/v1/events/{id}/analyze                              |
+|  WebSocket: /ws/telemetry?spacecraft_id= (full-duplex 1.2s tick) |
+|  REST: /api/v1/telemetry/snapshot & /matrix                      |
+|  REST: /api/v1/fleet/status, /isl-topology, /nodes, /switch      |
+|  REST: /api/v1/events & /events/{id}/analyze                     |
+|  REST: /api/v1/copilot/chat & /reports/generate                  |
 |                                                                  |
-|       TelemetryService (The Engine)                             |
-|  Generates nominal telemetry + replays NASA P-3 data on demand  |
-|  Runs P3AnomalyDetector on every data point                     |
+|       TelemetryService (Multi-Craft Concurrency Engine)          |
+|  - Concurrently simulates 3 spacecraft (246 channels total)      |
+|  - Replays NASA P-3 dataset on demand (Step 5,300 -> 6,656)      |
+|  - Simulates dynamic ISL mesh latency (12-45ms) and jitter       |
+|  - Runs P3AnomalyDetector on every active data point             |
 |                                                                  |
-|   P3AnomalyDetector          GeminiDiagnosisService             |
-|   (Change Detection)         (AI Reasoning Engine)              |
-|   Threshold = 0.3889         15+ Gemini model chain             |
+|   P3AnomalyDetector          GeminiDiagnosisService              |
+|   (Change Detection)         (AI Reasoning Engine)               |
+|   Threshold = 0.3889         15+ Gemini model cascade            |
+|                              Deterministic Fallback Net          |
 +------------------------------------------------------------------+
-                        |
-                        v
-              Google Gemini AI API (Cloud)
+              |                              |
+              v                              v
+   SQLite Relational DB            Google Gemini AI Cloud API
+  (astra.db: 6 WAL Tables)        (Flash, Pro, Lite Cascades)
+```
+
+### Constellation Fleet & Orbital ISL Mesh Architecture
+
+```mermaid
+graph TD
+    classDef sat fill:#ebdccb,stroke:#452a19,stroke-width:2px,color:#24140b;
+    classDef gnd fill:#f7f4ee,stroke:#452a19,stroke-width:2px,color:#24140b;
+
+    Alpha["🛰️ ASTRA-Alpha (Flagship)<br>LEO-SSO (520 km) • 98.6% Health"]:::sat
+    Beta["🛰️ ASTRA-Beta (Relay Node)<br>LEO-Polar (680 km) • 97.4% Health"]:::sat
+    Gamma["🛰️ ASTRA-Gamma (Observation)<br>MEO (2,000 km) • 89.1% Health"]:::sat
+
+    Alpha <--"ISL Link 1 (Ka-Band RF)<br>18.4 ms • <0.01% Loss"--> Beta
+    Beta <--"ISL Link 2 (Optical Laser Mesh)<br>34.2 ms • <0.03% Loss"--> Gamma
+    Gamma <--"ISL Link 3 (Ka-Band RF)<br>28.6 ms • <0.02% Loss"--> Alpha
+
+    GND["📡 Ground Mission Control (ASTRA Console)<br>FastAPI Engine • SQLite astra.db • WebSocket Multi-Stream"]:::gnd
+    Alpha -.->|"Ground Focus (Telecommand & 82ch Matrix)"| GND
+    Beta -.->|"Concurrent Telemetry Ingestion (82ch)"| GND
+    Gamma -.->|"Concurrent Telemetry Ingestion (82ch)"| GND
 ```
 
 ### Two Computers Talking
 
 | Part | What It Is | Where It Runs |
 |------|-----------|--------------|
-| Frontend | The visual website the user sees | Browser (any device) |
-| Backend | The processing engine that does calculations | Server (Render.com) |
-| Communication | WebSocket + REST API | Real-time internet connection |
+| Frontend | The visual website the user sees (11 Pages + 1 Modal) | Browser (any modern device) |
+| Backend | The processing engine that computes telemetry & detector math | Server (Python 3.11+ / Render.com) |
+| Communication | Full-Duplex WebSocket + REST API | Real-time low-latency connection |
 
 ---
 
@@ -354,29 +381,48 @@ This means ASTRA **never fails** to produce a diagnosis.
 ---
 
 ### Feature 18: Constellation Fleet Management & Multi-Spacecraft Orbital Mesh View
-**What it is:** Enterprise multi-spacecraft constellation monitoring extending ASTRA from a single satellite tool into a full orbital fleet management system supporting three active spacecraft nodes: **ASTRA-Alpha**, **ASTRA-Beta**, and **ASTRA-Gamma**.
+**What it is:** Enterprise multi-spacecraft constellation monitoring extending ASTRA from a single-satellite tool into an orbital fleet management system supporting three active spacecraft nodes: **ASTRA-Alpha**, **ASTRA-Beta**, and **ASTRA-Gamma**.
+
+**Constellation Nodes Inventory:**
+
+| Spacecraft ID | Designation & Role | Orbital Regime | Health Rating | Monitored Channels | Subsystems State | Operational Profile |
+|---------------|-------------------|----------------|---------------|--------------------|------------------|---------------------|
+| `ASTRA-ALPHA` | **ASTRA-Alpha (Flagship)** | LEO-SSO (520 km) | 98.6% Nominal | 82 Sensors | EPS: NOM, TCS: NOM, ADCS: NOM, TTC: NOM | Primary scientific payload & Earth observation |
+| `ASTRA-BETA` | **ASTRA-Beta (Relay Node)** | LEO-POLAR (680 km) | 97.4% Nominal | 82 Sensors | EPS: NOM, TCS: NOM, ADCS: NOM, TTC: NOM | High-throughput orbital data & telemetry relay |
+| `ASTRA-GAMMA` | **ASTRA-Gamma (Observation)** | MEO (2,000 km) | 89.1% Warning | 82 Sensors | EPS: NOM, TCS: WARN, ADCS: NOM, TTC: NOM | Radiation belt monitor; elevated thermal baseline |
+
+**Inter-Satellite Link (ISL) Mesh Crosslinks:**
+
+| Link Identifier | Node Path | Transmission Medium | Baseline Latency | Dynamic Jitter Range | Packet Loss Rate | Throughput | Status |
+|-----------------|-----------|---------------------|------------------|----------------------|------------------|------------|--------|
+| `ISL-MESH-001` | **Alpha ↔ Beta** | Ka-Band RF Crosslink | 18.4 ms | 15.5 ms – 21.2 ms | < 0.012% | 120.0 Mbps | `OPTIMAL` |
+| `ISL-MESH-002` | **Beta ↔ Gamma** | Optical Laser Mesh | 34.2 ms | 30.1 ms – 38.5 ms | < 0.035% | 95.0 Mbps | `NOMINAL` |
+| `ISL-MESH-003` | **Gamma ↔ Alpha** | Ka-Band RF Crosslink | 28.6 ms | 25.2 ms – 32.1 ms | < 0.024% | 105.0 Mbps | `NOMINAL` |
 
 **Engineering Highlights:**
-- **Multi-Node Concurrency & 246 Monitored Channels:**
-  - The telemetry engine concurrently simulates and advances telemetry states for all 3 spacecraft across the entire 82-channel matrix (246 total channels monitored).
-  - Each spacecraft features realistic orbital regime characteristics:
-    - **ASTRA-Alpha:** Flagship science node in Sun-Synchronous Low Earth Orbit (LEO-SSO, 520 km). Status: `NOMINAL` (Health: 98.6%).
-    - **ASTRA-Beta:** Communications relay node in Polar Low Earth Orbit (LEO-POLAR, 680 km). Status: `NOMINAL` (Health: 97.4%).
-    - **ASTRA-Gamma:** Deep observation payload in Medium Earth Orbit (MEO, 2,000 km). Status: `WARNING` (Health: 89.1%, thermal elevation).
-- **Inter-Satellite Link (ISL) Mesh Latency & Packet Loss Engine:**
-  - Full-mesh cross-orbital topology tracking real-time latency (12ms to 45ms dynamic micro-jitter), packet loss (< 0.05% nominal), Signal-to-Noise Ratio (SNR), and link throughput across Ka-band and Optical Laser Mesh crosslinks.
-  - Relational persistence in SQLite `isl_links` table and `spacecraft_nodes` table.
-- **Header Constellation Switcher:**
-  - Persistent dropdown in the top console navigation header next to the 82-channel picker allowing instantaneous switching of ground monitoring focus.
-  - High-contrast Swiss Neo-Brutalist styling with active status indicators, orbit regime tags, and health percentage badges.
-- **Dedicated Executive Fleet Overview Page (`FleetOverviewPage.jsx`):**
-  - **Constellation Grid:** 3 prominent spacecraft cards displaying real-time bus voltage, core thermal readings, battery SOC, ADCS drift, and individual subsystem matrices.
-  - **ISL Mesh Topology Panel:** Interactive crosslink cards visualizing Alpha ↔ Beta, Beta ↔ Gamma, and Gamma ↔ Alpha communication pathways with live latency metrics.
-  - **Aggregated Fleet Status Bar:** Real-time metrics tracking total fleet size (3 nodes), 246 monitored sensor channels, average fleet health (95.0%), active ISL links (3/3), and 100% network synchronization.
-  - **Fleet JSON Export:** One-click automated cryptographic constellation report export.
-- **REST & Full-Duplex WebSocket Integration:**
-  - New endpoints: `GET /api/v1/fleet/status`, `GET /api/v1/fleet/isl-topology`, `GET /api/v1/fleet/nodes`, and `POST /api/v1/fleet/switch`.
-  - WebSocket `/ws/telemetry?spacecraft_id=` with client message support for `{"action": "set_spacecraft", "spacecraft_id": "..."}` and automatic audit logging.
+- **Concurrent Multi-Node Simulation Engine:**
+  - The telemetry service (`backend/app/services/telemetry_service.py`) concurrently maintains tick states and advances telemetry for all 3 spacecraft across all 82 channels on every cycle (**246 total monitored sensors**).
+  - Each satellite executes unique orbital oscillation models reflecting its orbit regime (solar array exposure in LEO-SSO, thermal radiative cooling in Polar orbit, high radiation dose in MEO).
+- **Dynamic Cross-Orbital ISL Jitter Model:**
+  - Latency oscillates according to inter-spacecraft orbital distance formulas with Gaussian micro-jitter:
+    $$\text{Latency}(t) = \text{Base} + A \cdot \sin(\omega t) + \mathcal{N}(0, \sigma)$$
+  - Packet loss rates dynamically track atmospheric limb scintillation and cross-link Doppler shifts.
+- **REST Fleet Endpoints (`backend/app/routers/fleet.py`):**
+  - `GET /api/v1/fleet/status`: Returns aggregated health metrics, active subsystem states, and ISL mesh matrix.
+  - `GET /api/v1/fleet/isl-topology`: Returns node-to-node latency and packet loss links for mesh visualization.
+  - `GET /api/v1/fleet/nodes`: Enumerates active constellation inventory and current ground focus.
+  - `POST /api/v1/fleet/switch`: Switches ground operator focus and records a `COMMAND_UPLINK` audit event in SQLite `astra.db`.
+- **Full-Duplex WebSocket Streaming (`/ws/telemetry?spacecraft_id=`):**
+  - Clients can specify a spacecraft ID upon connection or send `{"action": "set_spacecraft", "spacecraft_id": "..."}`.
+  - Telemetry frames push `fleet_summary`, `fleet_nodes`, and `isl_links` alongside the active spacecraft's telemetry payload.
+- **Header Constellation Switcher (`Header.jsx`):**
+  - Top navigation dropdown displaying live craft badges, status indicators, and health ratings.
+  - **Permanent Contrast Locks:** Dedicated `.fleet-item`, `.fleet-item-active`, and `.fleet-item-inactive` CSS classes in `index.css` prevent text from turning white or washing out when hovered.
+- **Executive Fleet Overview Page (`FleetOverviewPage.jsx`):**
+  - **Aggregated Status Bar:** 6 live metric tiles summarizing active nodes (3/3), total channels (246), average fleet health (95.0%), and network synchronization.
+  - **Constellation Grid:** 3 executive cards displaying Bus Voltage, Core Thermal, Battery SOC, ADCS Drift, and Subsystems Matrix with one-click ground focus switching.
+  - **ISL Mesh Topology Panel:** Interactive triangular mesh visualization with live latency counters and an ISL technical ledger.
+  - **Diagnostics & Export:** "Ping ISL Mesh" simulation trigger and "Export Fleet JSON" cryptographic report download.
 
 ---
 
@@ -421,8 +467,16 @@ The operator navigates to the Mission Reports page to generate a post-incident d
 - **Interactive Web View:** Displays a Swiss Neo-Brutalist debrief card with cryptographic SHA-256 notarization, telemetry delta charts, and incident timestamps.
 - **Official Print / PDF View:** Clicking "Export Official PDF" strips all web navigation, buttons, and decorative backgrounds via `@media print`. The document transforms into an authentic NASA Technical Document on crisp white A4 paper featuring classification headers, telemetry breakdown matrices, incident findings, and official sign-off blocks signed by **Gene Kranz** (Flight Director) and **Dr. Eleanor Arroway** (Chief AI Scientist).
 
-**STEP 11 — Persistence Verification & Nominal Reset**
-The operator navigates to the Event Log to inspect the chronological timeline. Every action—channel switches, AI diagnostic runs, command approvals, and role updates—is permanently recorded in SQLite `astra.db` (Write-Ahead Logging mode) and exported as JSON. Finally, clicking "Reset Nominal" restores telemetry to baseline values, clearing all active alarms.
+**STEP 11 — Constellation Fleet Monitoring & ISL Mesh View**
+The operator navigates to the Fleet Overview page (`Fleet Mesh` in the sidebar):
+- The operator monitors the entire 3-satellite constellation: **ASTRA-Alpha** (Flagship, LEO-SSO), **ASTRA-Beta** (Relay, LEO-Polar), and **ASTRA-Gamma** (Observation, MEO).
+- Real-time KPIs display active constellation status: 3/3 nodes online, 246 total telemetry channels tracked concurrently, 95.0% average health, and 100% network synchronization.
+- The operator reviews live Inter-Satellite Link (ISL) mesh crosslinks showing dynamic latency (18.4ms Ka-band, 34.2ms Optical, 28.6ms Ka-band) and packet loss (<0.03%).
+- The operator clicks "Focus This Satellite" or selects a node from the global header dropdown: ground station telemetry instantly re-anchors to that spacecraft without dropping WebSocket connections, and an immutable `COMMAND_UPLINK` event is permanently recorded in SQLite `astra.db`.
+- The operator tests the mesh diagnostics via "Ping ISL Mesh" and exports constellation status via "Export Fleet JSON".
+
+**STEP 12 — Persistence Verification & Nominal Reset**
+The operator navigates to the Event Log to inspect the chronological timeline. Every action—channel switches, spacecraft focus changes, AI diagnostic runs, command approvals, and role updates—is permanently recorded in SQLite `astra.db` (Write-Ahead Logging mode) and exported as JSON. Finally, clicking "Reset Nominal" restores telemetry to baseline values, clearing all active alarms.
 
 ---
 
