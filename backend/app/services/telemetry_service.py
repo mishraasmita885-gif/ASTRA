@@ -349,7 +349,7 @@ class TelemetryService:
             "event_created": event_created.model_dump() if event_created else None
         }
 
-    def generate_next_tick(self) -> Dict[str, Any]:
+    def generate_next_tick(self, target_spacecraft: Optional[str] = None) -> Dict[str, Any]:
         """Generate next telemetry frame according to active mode"""
         now_iso = datetime.now(timezone.utc).isoformat()
         step = self.current_state["step"] + 1
