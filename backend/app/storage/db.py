@@ -51,9 +51,63 @@ def init_db():
                 telemetry_summary TEXT
             );
         """)
+
+        # Constellation Fleet Nodes Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS spacecraft_nodes (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                orbit_regime TEXT NOT NULL,
+                status TEXT NOT NULL,
+                health_score REAL NOT NULL,
+                last_ping TEXT
+            );
+        """)
+
+        # Inter-Satellite Link (ISL) Mesh Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS isl_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_sat TEXT NOT NULL,
+                target_sat TEXT NOT NULL,
+                latency_ms REAL NOT NULL,
+                packet_loss_pct REAL NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+        """)
         
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_epoch ON audit_log(timestamp_epoch DESC);")
+
+        # Seed default constellation spacecraft nodes if not present
+        cursor.execute("SELECT COUNT(*) as cnt FROM spacecraft_nodes;")
+        count = cursor.fetchone()["cnt"]
+        if count == 0:
+            now_iso = "2026-10-21T12:00:00Z"
+            cursor.executemany("""
+                INSERT INTO spacecraft_nodes (id, name, orbit_regime, status, health_score, last_ping)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, [
+                ("ASTRA-ALPHA", "ASTRA-Alpha (Flagship)", "LEO-SSO (520 km)", "NOMINAL", 98.6, now_iso),
+                ("ASTRA-BETA", "ASTRA-Beta (Relay Node)", "LEO-POLAR (680 km)", "NOMINAL", 97.4, now_iso),
+                ("ASTRA-GAMMA", "ASTRA-Gamma (Observation)", "MEO (2,000 km)", "WARNING", 89.1, now_iso),
+            ])
+            logger.info("Seeded 3 default constellation spacecraft nodes: ALPHA, BETA, GAMMA")
+
+        # Seed default ISL mesh links if not present
+        cursor.execute("SELECT COUNT(*) as cnt FROM isl_links;")
+        link_count = cursor.fetchone()["cnt"]
+        if link_count == 0:
+            now_iso = "2026-10-21T12:00:00Z"
+            cursor.executemany("""
+                INSERT INTO isl_links (source_sat, target_sat, latency_ms, packet_loss_pct, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, [
+                ("ASTRA-ALPHA", "ASTRA-BETA", 18.4, 0.01, now_iso),
+                ("ASTRA-BETA", "ASTRA-GAMMA", 34.2, 0.03, now_iso),
+                ("ASTRA-GAMMA", "ASTRA-ALPHA", 28.6, 0.02, now_iso),
+            ])
+            logger.info("Seeded default Inter-Satellite Link (ISL) mesh topology")
         
         conn.commit()
         conn.close()
@@ -155,3 +209,82 @@ def db_list_audit_entries(limit: int = 50) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.warning(f"Error loading audit log from SQLite: {e}")
         return []
+
+
+def db_list_spacecraft_nodes() -> List[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM spacecraft_nodes ORDER BY id ASC;")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.warning(f"Error listing spacecraft nodes: {e}")
+        return []
+
+
+def db_get_spacecraft_node(node_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM spacecraft_nodes WHERE id = ?;", (node_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.warning(f"Error getting spacecraft node {node_id}: {e}")
+        return None
+
+
+def db_update_spacecraft_node(node_id: str, status: Optional[str] = None, health_score: Optional[float] = None, last_ping: Optional[str] = None):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        updates = []
+        params = []
+        if status is not None:
+            updates.append("status = ?")
+            params.append(status)
+        if health_score is not None:
+            updates.append("health_score = ?")
+            params.append(health_score)
+        if last_ping is not None:
+            updates.append("last_ping = ?")
+            params.append(last_ping)
+        if updates:
+            params.append(node_id)
+            cursor.execute(f"UPDATE spacecraft_nodes SET {', '.join(updates)} WHERE id = ?;", tuple(params))
+            conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error updating spacecraft node {node_id}: {e}")
+
+
+def db_list_isl_links() -> List[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM isl_links ORDER BY id ASC;")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.warning(f"Error listing ISL links: {e}")
+        return []
+
+
+def db_update_isl_link(source_sat: str, target_sat: str, latency_ms: float, packet_loss_pct: float, updated_at: str):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE isl_links 
+            SET latency_ms = ?, packet_loss_pct = ?, updated_at = ?
+            WHERE (source_sat = ? AND target_sat = ?) OR (source_sat = ? AND target_sat = ?);
+        """, (latency_ms, packet_loss_pct, updated_at, source_sat, target_sat, target_sat, source_sat))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error updating ISL link between {source_sat} and {target_sat}: {e}")
+

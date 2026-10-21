@@ -41,10 +41,144 @@ class TelemetryService:
             "uplink_quality": 99.8,
             "anomaly_score": 0.02,
             "is_anomaly": False,
-            "mode": "nominal"
+            "mode": "nominal",
+            "spacecraft_id": "ASTRA-ALPHA",
+            "spacecraft_name": "ASTRA-Alpha (Flagship)",
+            "orbit_regime": "LEO-SSO (520 km)",
+            "health_score": 98.6
         }
 
         self.active_channel: str = "P-3"
+        self.active_spacecraft: str = "ASTRA-ALPHA"
+
+        # Constellation Multi-Spacecraft Fleet Nodes
+        self.spacecraft_nodes: Dict[str, Dict[str, Any]] = {
+            "ASTRA-ALPHA": {
+                "id": "ASTRA-ALPHA",
+                "name": "ASTRA-Alpha (Flagship)",
+                "orbit_regime": "LEO-SSO (520 km)",
+                "status": "NOMINAL",
+                "health_score": 98.6,
+                "anomalies_count": 0,
+                "monitored_channels": 82,
+                "subsystems": {
+                    "eps": "NOMINAL",
+                    "tcs": "NOMINAL",
+                    "adcs": "NOMINAL",
+                    "ttc": "NOMINAL"
+                },
+                "telemetry": {
+                    "temperature": 15.2,
+                    "voltage": 24.1,
+                    "battery_pct": 98.4,
+                    "solar_input": 96.4,
+                    "current_draw": 4.2,
+                    "adcs_drift": 0.02,
+                    "link_snr": 14.2,
+                    "channel": "P-3",
+                    "p3_value": 0.12,
+                    "anomaly_score": 0.02,
+                    "is_anomaly": False
+                }
+            },
+            "ASTRA-BETA": {
+                "id": "ASTRA-BETA",
+                "name": "ASTRA-Beta (Relay Node)",
+                "orbit_regime": "LEO-POLAR (680 km)",
+                "status": "NOMINAL",
+                "health_score": 97.4,
+                "anomalies_count": 0,
+                "monitored_channels": 82,
+                "subsystems": {
+                    "eps": "NOMINAL",
+                    "tcs": "NOMINAL",
+                    "adcs": "NOMINAL",
+                    "ttc": "NOMINAL"
+                },
+                "telemetry": {
+                    "temperature": 13.8,
+                    "voltage": 24.4,
+                    "battery_pct": 97.2,
+                    "solar_input": 98.1,
+                    "current_draw": 3.9,
+                    "adcs_drift": 0.015,
+                    "link_snr": 15.8,
+                    "channel": "P-1",
+                    "p3_value": 0.09,
+                    "anomaly_score": 0.01,
+                    "is_anomaly": False
+                }
+            },
+            "ASTRA-GAMMA": {
+                "id": "ASTRA-GAMMA",
+                "name": "ASTRA-Gamma (Observation)",
+                "orbit_regime": "MEO (2,000 km)",
+                "status": "WARNING",
+                "health_score": 89.1,
+                "anomalies_count": 1,
+                "monitored_channels": 82,
+                "subsystems": {
+                    "eps": "NOMINAL",
+                    "tcs": "WARNING",
+                    "adcs": "NOMINAL",
+                    "ttc": "NOMINAL"
+                },
+                "telemetry": {
+                    "temperature": 28.4,
+                    "voltage": 23.8,
+                    "battery_pct": 89.5,
+                    "solar_input": 91.2,
+                    "current_draw": 5.8,
+                    "adcs_drift": 0.045,
+                    "link_snr": 12.6,
+                    "channel": "T-2",
+                    "p3_value": 0.18,
+                    "anomaly_score": 0.06,
+                    "is_anomaly": False
+                }
+            }
+        }
+
+        # Inter-Satellite Link (ISL) Mesh Topology
+        self.isl_links: List[Dict[str, Any]] = [
+            {
+                "id": 1,
+                "source_sat": "ASTRA-ALPHA",
+                "target_sat": "ASTRA-BETA",
+                "latency_ms": 18.4,
+                "packet_loss_pct": 0.01,
+                "snr_db": 16.8,
+                "status": "OPTIMAL",
+                "throughput_mbps": 120.0,
+                "band": "Ka-Band Crosslink",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": 2,
+                "source_sat": "ASTRA-BETA",
+                "target_sat": "ASTRA-GAMMA",
+                "latency_ms": 34.2,
+                "packet_loss_pct": 0.03,
+                "snr_db": 13.5,
+                "status": "NOMINAL",
+                "throughput_mbps": 95.0,
+                "band": "Optical Laser Mesh",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            },
+            {
+                "id": 3,
+                "source_sat": "ASTRA-GAMMA",
+                "target_sat": "ASTRA-ALPHA",
+                "latency_ms": 28.6,
+                "packet_loss_pct": 0.02,
+                "snr_db": 14.9,
+                "status": "NOMINAL",
+                "throughput_mbps": 105.0,
+                "band": "Ka-Band Crosslink",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }
+        ]
+
         self._load_nasa_data()
 
     def list_available_channels(self) -> List[str]:
@@ -379,7 +513,177 @@ class TelemetryService:
                 "threshold": self.detector.threshold
             }
 
+        # Multi-Spacecraft Simulation Synchronization
+        # Synchronize Alpha's telemetry dictionary
+        self.spacecraft_nodes["ASTRA-ALPHA"]["telemetry"] = {
+            "temperature": self.current_state.get("temperature", 15.2),
+            "voltage": self.current_state.get("voltage", 24.1),
+            "battery_pct": self.current_state.get("battery_pct", 98.4),
+            "solar_input": self.current_state.get("solar_input", 96.4),
+            "current_draw": self.current_state.get("current_draw", 4.2),
+            "adcs_drift": self.current_state.get("adcs_drift", 0.02),
+            "link_snr": self.current_state.get("link_snr", 14.2),
+            "channel": self.current_state.get("channel", "P-3"),
+            "p3_value": self.current_state.get("p3_value", 0.12),
+            "anomaly_score": self.current_state.get("anomaly_score", 0.02),
+            "is_anomaly": self.current_state.get("is_anomaly", False)
+        }
+        self.spacecraft_nodes["ASTRA-ALPHA"]["status"] = "CRITICAL" if self.current_state.get("is_anomaly") else "NOMINAL"
+        self.spacecraft_nodes["ASTRA-ALPHA"]["health_score"] = 42.0 if self.current_state.get("is_anomaly") else 98.6
+
+        # Advance Beta simulation (Relay Node - Polar Orbit)
+        beta_noise = (random.random() - 0.5) * 0.08
+        self.spacecraft_nodes["ASTRA-BETA"]["telemetry"] = {
+            "temperature": round(13.8 + math.sin(step * 0.18) * 0.25 + beta_noise, 2),
+            "voltage": round(24.4 + math.cos(step * 0.25) * 0.06 + beta_noise * 0.02, 2),
+            "battery_pct": round(max(92.0, 97.2 - (step * 0.0004)), 2),
+            "solar_input": round(98.1 + math.sin(step * 0.12) * 0.3, 2),
+            "current_draw": round(3.9 + beta_noise * 0.2, 2),
+            "adcs_drift": round(0.015 + (random.random() - 0.5) * 0.002, 3),
+            "link_snr": round(15.8 + beta_noise * 0.3, 1),
+            "channel": "P-1",
+            "p3_value": round(0.09 + math.sin(step * 0.07) * 0.01, 4),
+            "anomaly_score": 0.01,
+            "is_anomaly": False
+        }
+
+        # Advance Gamma simulation (Observation Node - MEO Orbit with minor T-2 thermal variance)
+        gamma_noise = (random.random() - 0.5) * 0.12
+        self.spacecraft_nodes["ASTRA-GAMMA"]["telemetry"] = {
+            "temperature": round(28.4 + math.sin(step * 0.15) * 0.4 + gamma_noise, 2),
+            "voltage": round(23.8 + math.cos(step * 0.2) * 0.08 + gamma_noise * 0.03, 2),
+            "battery_pct": round(max(85.0, 89.5 - (step * 0.0006)), 2),
+            "solar_input": round(91.2 + math.sin(step * 0.1) * 0.5, 2),
+            "current_draw": round(5.8 + gamma_noise * 0.3, 2),
+            "adcs_drift": round(0.045 + (random.random() - 0.5) * 0.004, 3),
+            "link_snr": round(12.6 + gamma_noise * 0.4, 1),
+            "channel": "T-2",
+            "p3_value": round(0.18 + math.sin(step * 0.04) * 0.015, 4),
+            "anomaly_score": 0.06,
+            "is_anomaly": False
+        }
+
+        # Dynamic Inter-Satellite Link (ISL) Mesh Latency & Packet Loss Jitter (12ms to 45ms)
+        self.isl_links[0]["latency_ms"] = round(18.4 + math.sin(step * 0.1) * 2.2 + random.uniform(-0.3, 0.3), 2)
+        self.isl_links[0]["packet_loss_pct"] = round(max(0.002, 0.01 + random.uniform(-0.003, 0.004)), 3)
+        self.isl_links[0]["updated_at"] = now_iso
+
+        self.isl_links[1]["latency_ms"] = round(34.2 + math.cos(step * 0.08) * 3.5 + random.uniform(-0.4, 0.4), 2)
+        self.isl_links[1]["packet_loss_pct"] = round(max(0.005, 0.03 + random.uniform(-0.004, 0.006)), 3)
+        self.isl_links[1]["updated_at"] = now_iso
+
+        self.isl_links[2]["latency_ms"] = round(28.6 + math.sin(step * 0.12) * 2.8 + random.uniform(-0.4, 0.4), 2)
+        self.isl_links[2]["packet_loss_pct"] = round(max(0.004, 0.02 + random.uniform(-0.003, 0.005)), 3)
+        self.isl_links[2]["updated_at"] = now_iso
+
+        # If active spacecraft is not ALPHA, overlay active spacecraft's telemetry metrics
+        target_id = target_spacecraft or self.active_spacecraft
+        if target_id in self.spacecraft_nodes and target_id != "ASTRA-ALPHA":
+            target_node = self.spacecraft_nodes[target_id]
+            t = target_node["telemetry"]
+            self.current_state.update({
+                "temperature": t["temperature"],
+                "voltage": t["voltage"],
+                "battery_pct": t["battery_pct"],
+                "solar_input": t["solar_input"],
+                "current_draw": t["current_draw"],
+                "adcs_drift": t["adcs_drift"],
+                "link_snr": t["link_snr"],
+                "channel": t["channel"],
+                "p3_value": t["p3_value"],
+                "anomaly_score": t["anomaly_score"],
+                "is_anomaly": t["is_anomaly"],
+                "mode": "nominal"
+            })
+
+        # Enrich current state with constellation metadata
+        active_node = self.spacecraft_nodes.get(self.active_spacecraft, self.spacecraft_nodes["ASTRA-ALPHA"])
+        self.current_state["spacecraft_id"] = self.active_spacecraft
+        self.current_state["spacecraft_name"] = active_node["name"]
+        self.current_state["orbit_regime"] = active_node["orbit_regime"]
+        self.current_state["health_score"] = active_node["health_score"]
+        self.current_state["status"] = active_node["status"]
+        self.current_state["fleet_summary"] = self.get_fleet_summary()
+        self.current_state["fleet_nodes"] = self.spacecraft_nodes
+        self.current_state["isl_links"] = self.isl_links
+
         return self.current_state
+
+    def set_spacecraft(self, spacecraft_id: str) -> bool:
+        """Switch active operational monitoring focus to another constellation node"""
+        clean_id = spacecraft_id.strip().upper()
+        if clean_id in self.spacecraft_nodes:
+            self.active_spacecraft = clean_id
+            self.current_state["spacecraft_id"] = clean_id
+            self.current_state["spacecraft_name"] = self.spacecraft_nodes[clean_id]["name"]
+            self.current_state["orbit_regime"] = self.spacecraft_nodes[clean_id]["orbit_regime"]
+            self.current_state["health_score"] = self.spacecraft_nodes[clean_id]["health_score"]
+            logger.info(f"Switched active spacecraft monitoring focus to {clean_id}")
+            return True
+        logger.warning(f"Unknown spacecraft node ID: {spacecraft_id}")
+        return False
+
+    def get_fleet_summary(self) -> Dict[str, Any]:
+        """Aggregate constellation-wide operational metrics"""
+        scores = [n["health_score"] for n in self.spacecraft_nodes.values()]
+        avg_score = round(sum(scores) / len(scores), 1) if scores else 100.0
+        has_critical = any(n["status"] == "CRITICAL" for n in self.spacecraft_nodes.values())
+        has_warning = any(n["status"] == "WARNING" for n in self.spacecraft_nodes.values())
+        
+        status = "CRITICAL" if has_critical else ("WARNING" if has_warning else "NOMINAL")
+        
+        return {
+            "total_spacecraft": len(self.spacecraft_nodes),
+            "active_spacecraft": self.active_spacecraft,
+            "status": status,
+            "avg_health_score": avg_score,
+            "total_monitored_channels": sum(n.get("monitored_channels", 82) for n in self.spacecraft_nodes.values()),
+            "active_mesh_links": len(self.isl_links),
+            "network_sync": "100% SYNCHRONIZED",
+            "isl_avg_latency_ms": round(sum(l["latency_ms"] for l in self.isl_links) / len(self.isl_links), 1) if self.isl_links else 0.0,
+            "isl_avg_loss_pct": round(sum(l["packet_loss_pct"] for l in self.isl_links) / len(self.isl_links), 3) if self.isl_links else 0.0
+        }
+
+    def get_fleet_status(self) -> Dict[str, Any]:
+        """Return full constellation status payload"""
+        return {
+            "fleet_summary": self.get_fleet_summary(),
+            "nodes": list(self.spacecraft_nodes.values()),
+            "isl_mesh": self.isl_links
+        }
+
+    def get_isl_topology(self) -> Dict[str, Any]:
+        """Return structured nodes and edges for network mesh visualization"""
+        nodes = []
+        for n_id, node in self.spacecraft_nodes.items():
+            nodes.append({
+                "id": n_id,
+                "name": node["name"],
+                "orbit_regime": node["orbit_regime"],
+                "status": node["status"],
+                "health_score": node["health_score"],
+                "is_active_focus": (n_id == self.active_spacecraft)
+            })
+
+        edges = []
+        for link in self.isl_links:
+            edges.append({
+                "id": link["id"],
+                "source": link["source_sat"],
+                "target": link["target_sat"],
+                "latency_ms": link["latency_ms"],
+                "packet_loss_pct": link["packet_loss_pct"],
+                "snr_db": link["snr_db"],
+                "status": link["status"],
+                "throughput_mbps": link["throughput_mbps"],
+                "band": link["band"]
+            })
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
 
     def get_p3_samples(self, start: int = 5000, count: int = 2000) -> List[Dict[str, Any]]:
         """Return historical window of P-3 test stream for chart preview"""
@@ -398,3 +702,4 @@ class TelemetryService:
 
 
 telemetry_service = TelemetryService()
+

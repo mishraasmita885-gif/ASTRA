@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMission } from '../context/MissionContext';
 import {
   Box,
+  Radio,
   Activity,
   Boxes,
   ShieldAlert,
@@ -23,6 +24,7 @@ export const Sidebar = () => {
 
   const missionNav = [
     { id: 'welcome', label: 'Overview', icon: Box },
+    { id: 'fleet', label: 'Fleet Mesh', icon: Radio },
     { id: 'telemetry', label: 'Live Telemetry', icon: Activity },
     { id: 'subsystems', label: 'Subsystems', icon: Boxes },
     {

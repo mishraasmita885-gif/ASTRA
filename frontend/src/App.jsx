@@ -11,6 +11,7 @@ import { EventLogPage } from './pages/EventLogPage';
 import { SimulationPage } from './pages/SimulationPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MissionReportsPage } from './pages/MissionReportsPage';
+import { FleetOverviewPage } from './pages/FleetOverviewPage';
 
 const AppContent = () => {
   const { activeTab } = useMission();
@@ -21,6 +22,8 @@ const AppContent = () => {
         return <WelcomePage />;
       case 'overview':
         return <MissionOverviewPage />;
+      case 'fleet':
+        return <FleetOverviewPage />;
       case 'telemetry':
         return <LiveTelemetryPage />;
       case 'subsystems':

@@ -27,7 +27,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 1. Why Does ASTRA Exist?
 2. The Big Idea (The Solution)
 3. System Architecture
-4. Every Feature Explained (Features 1 through 17)
+4. Every Feature Explained (Features 1 through 18)
 5. The Complete User Journey (Step-by-Step)
 6. The Technology Stack
 7. The AI Brain — Gemini Multi-Model Cascade & Aerospace Copilot
@@ -36,7 +36,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 10. Human-in-the-Loop Safety & Role-Based Access Control (RBAC)
 11. Persistent Database Architecture (SQLite astra.db & JSON Store)
 12. The Design System & Dual-View Print Architecture
-13. All 10 Pages and Modals Explained
+13. All 11 Pages and Modals Explained
 14. How Commands Work (Approve / Reject Flow)
 15. Deployment Architecture
 16. File Structure
@@ -350,6 +350,33 @@ This means ASTRA **never fails** to produce a diagnosis.
   - `FLIGHT_DIRECTOR`: Full command execution, crisis simulation, and uplink approval clearance.
   - `TELEMETRY_OBSERVER`: Read-only telemetry inspection and diagnostic viewing.
 - Role switches are cryptographically tagged and logged in the persistent audit ledger.
+
+---
+
+### Feature 18: Constellation Fleet Management & Multi-Spacecraft Orbital Mesh View
+**What it is:** Enterprise multi-spacecraft constellation monitoring extending ASTRA from a single satellite tool into a full orbital fleet management system supporting three active spacecraft nodes: **ASTRA-Alpha**, **ASTRA-Beta**, and **ASTRA-Gamma**.
+
+**Engineering Highlights:**
+- **Multi-Node Concurrency & 246 Monitored Channels:**
+  - The telemetry engine concurrently simulates and advances telemetry states for all 3 spacecraft across the entire 82-channel matrix (246 total channels monitored).
+  - Each spacecraft features realistic orbital regime characteristics:
+    - **ASTRA-Alpha:** Flagship science node in Sun-Synchronous Low Earth Orbit (LEO-SSO, 520 km). Status: `NOMINAL` (Health: 98.6%).
+    - **ASTRA-Beta:** Communications relay node in Polar Low Earth Orbit (LEO-POLAR, 680 km). Status: `NOMINAL` (Health: 97.4%).
+    - **ASTRA-Gamma:** Deep observation payload in Medium Earth Orbit (MEO, 2,000 km). Status: `WARNING` (Health: 89.1%, thermal elevation).
+- **Inter-Satellite Link (ISL) Mesh Latency & Packet Loss Engine:**
+  - Full-mesh cross-orbital topology tracking real-time latency (12ms to 45ms dynamic micro-jitter), packet loss (< 0.05% nominal), Signal-to-Noise Ratio (SNR), and link throughput across Ka-band and Optical Laser Mesh crosslinks.
+  - Relational persistence in SQLite `isl_links` table and `spacecraft_nodes` table.
+- **Header Constellation Switcher:**
+  - Persistent dropdown in the top console navigation header next to the 82-channel picker allowing instantaneous switching of ground monitoring focus.
+  - High-contrast Swiss Neo-Brutalist styling with active status indicators, orbit regime tags, and health percentage badges.
+- **Dedicated Executive Fleet Overview Page (`FleetOverviewPage.jsx`):**
+  - **Constellation Grid:** 3 prominent spacecraft cards displaying real-time bus voltage, core thermal readings, battery SOC, ADCS drift, and individual subsystem matrices.
+  - **ISL Mesh Topology Panel:** Interactive crosslink cards visualizing Alpha ↔ Beta, Beta ↔ Gamma, and Gamma ↔ Alpha communication pathways with live latency metrics.
+  - **Aggregated Fleet Status Bar:** Real-time metrics tracking total fleet size (3 nodes), 246 monitored sensor channels, average fleet health (95.0%), active ISL links (3/3), and 100% network synchronization.
+  - **Fleet JSON Export:** One-click automated cryptographic constellation report export.
+- **REST & Full-Duplex WebSocket Integration:**
+  - New endpoints: `GET /api/v1/fleet/status`, `GET /api/v1/fleet/isl-topology`, `GET /api/v1/fleet/nodes`, and `POST /api/v1/fleet/switch`.
+  - WebSocket `/ws/telemetry?spacecraft_id=` with client message support for `{"action": "set_spacecraft", "spacecraft_id": "..."}` and automatic audit logging.
 
 ---
 
@@ -678,6 +705,26 @@ CREATE TABLE IF NOT EXISTS staged_commands (
     approved_by TEXT,
     timestamp TEXT NOT NULL
 );
+
+-- Constellation Spacecraft Nodes Table
+CREATE TABLE IF NOT EXISTS spacecraft_nodes (
+    id TEXT PRIMARY KEY,         -- e.g. ASTRA-ALPHA, ASTRA-BETA, ASTRA-GAMMA
+    name TEXT NOT NULL,          -- e.g. ASTRA-Alpha (Flagship)
+    orbit_regime TEXT NOT NULL,  -- e.g. LEO-SSO (520 km), MEO (2,000 km)
+    status TEXT NOT NULL,        -- NOMINAL, WARNING, CRITICAL
+    health_score REAL NOT NULL,  -- 0.0 to 100.0%
+    last_ping TEXT               -- ISO8601 Timestamp
+);
+
+-- Inter-Satellite Link (ISL) Mesh Table
+CREATE TABLE IF NOT EXISTS isl_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_sat TEXT NOT NULL,    -- Source Node ID
+    target_sat TEXT NOT NULL,    -- Target Node ID
+    latency_ms REAL NOT NULL,    -- Crosslink latency in milliseconds
+    packet_loss_pct REAL NOT NULL, -- Packet drop percentage
+    updated_at TEXT NOT NULL     -- ISO8601 Timestamp
+);
 ```
 
 ### 2. Disk-Backed Fallback Ledger (`event_store.json`)
@@ -725,7 +772,7 @@ A standout feature of ASTRA is its **Dual-View Print Engine** built for official
 
 ---
 
-## 13. All 10 Pages and Modals Explained
+## 13. All 11 Pages and Modals Explained
 
 ### Page 1: Welcome Page (`WelcomePage.jsx`)
 The immersive operational threshold of ASTRA.
@@ -741,14 +788,22 @@ The primary executive telemetry overview deck.
 - **Subsystem Status Matrix:** At-a-glance health metrics for EPS, TCS, TT&C, and ADCS with 30-second live trend sparklines.
 - **Active Incident Overview:** Real-time summary of unreviewed telemetry anomalies with one-click navigation to root cause analysis.
 
-### Page 3: Live Telemetry Console (`LiveTelemetryPage.jsx`)
+### Page 3: Constellation Fleet & Mesh View (`FleetOverviewPage.jsx`)
+Enterprise multi-spacecraft orbital constellation command deck.
+- **Constellation Spacecraft Grid:** 3 prominent spacecraft cards for **ASTRA-Alpha** (LEO-SSO), **ASTRA-Beta** (LEO-Polar), and **ASTRA-Gamma** (MEO) with real-time bus voltage, core temperature, battery SOC, ADCS drift, and health score gauges.
+- **Inter-Satellite Link (ISL) Mesh Topology Panel:** Interactive crosslink cards visualizing Alpha ↔ Beta, Beta ↔ Gamma, and Gamma ↔ Alpha communication pathways with live latency (12ms - 45ms), packet loss (< 0.05%), SNR, and throughput.
+- **Aggregated Fleet Status Bar:** Real-time metrics summarizing active nodes (3/3), total channels monitored (246 sensors), average fleet health (95.0%), and network synchronization.
+- **Ground Focus Switcher:** One-click card action to switch ground station monitoring focus to any satellite in the fleet without tearing down WebSocket connections.
+- **Fleet JSON Export:** One-click automated export of cryptographic constellation telemetry and link topology state.
+
+### Page 4: Live Telemetry Console (`LiveTelemetryPage.jsx`)
 The deep-inspection engineering workstation.
 - **Selectable Metric Cards:** Primary metric cards for P-3 score, temperature, bus voltage, battery state of charge, and solar array generation.
 - **Synchronized Waveform Chart:** High-performance multi-channel synchronized line graph with interactive channel toggles, hover scrubbers, and zoom controls.
 - **Dynamic 82-Channel Matrix Selector:** Dropdown menu allowing operators to switch live streaming focus across any of the 82 NASA telemetry channels without socket disconnection.
 - **Telemetry Replay & Simulation Triggers:** Instant buttons for "NASA P-3 Replay" and "Simulate Anomaly".
 
-### Page 4: Anomaly Center (`AnomalyCenterPage.jsx`)
+### Page 5: Anomaly Center (`AnomalyCenterPage.jsx`)
 The critical incident investigation and resolution hub.
 - **Chronological Incident Cards:** Clickable queue of all detected anomalies with severity badges, timestamp offsets, and peak deviation metrics.
 - **Event-Focused Waveform Zoom:** Waveform viewer that automatically frames the exact start-to-end window of the selected anomaly.
@@ -756,21 +811,21 @@ The critical incident investigation and resolution hub.
 - **HITL Staged Command Deck:** Staged recovery procedures with individual "Approve" / "Reject" controls and bulk "Approve All" capabilities.
 - **Model Benchmark Tab:** Side-by-side performance audit comparing detection latency and accuracy across Gemini cascade models.
 
-### Page 5: Subsystems Monitor (`SubsystemsPage.jsx`)
+### Page 6: Subsystems Monitor (`SubsystemsPage.jsx`)
 Component-level operational health across spacecraft subsystems.
 - **Dedicated Subsystem Cards:** Deep telemetry panels for EPS (Electrical Power), TCS (Thermal Control), TT&C (Telemetry, Tracking & Command), and ADCS (Attitude Determination & Control).
 - **Physical Sensor Limits:** Displays instantaneous readings against nominal threshold envelopes (e.g. 24.0V ± 1.5V, 15°C to 45°C).
 - **Live Trend Mini-Charts:** High-density 30-second trend sparklines providing immediate visual rate-of-change feedback.
 - **Bus Architecture Metadata:** Bus protocol telemetry indicators (MIL-STD-1553B, CAN, SpaceWire).
 
-### Page 6: AI Mission Assistant (`AIAssistantPage.jsx`)
+### Page 7: AI Mission Assistant (`AIAssistantPage.jsx`)
 The dedicated conversational aerospace engineering copilot console.
 - **Dual-Pane Layout:** Left pane displays the active anomaly reasoning report; right pane hosts the interactive conversational copilot.
 - **StructuredMarkdown Rendering:** Parses AI output into technical phase badges, inline telemetry pills (`24.18 V`), engineering bullet lists, and callout containers.
 - **Interactive Technical Q&A:** Ground operators can ask complex questions regarding orbital mechanics, battery load-shedding procedures, thermal contingency modes, and DSN antenna pointing.
 - **Model Cascade Transparency:** Displays the exact Google Gemini model ID that produced the current reasoning frame.
 
-### Page 7: Simulation Testbed (`SimulationPage.jsx`)
+### Page 8: Simulation Testbed (`SimulationPage.jsx`)
 Safe, sandboxed environment for testing emergency flight procedures.
 - **Pre-Configured Failure Scenarios:**
   1. *NASA P-3 Historical Flight Anomaly:* Real-world SMAP satellite power bus deviation.
@@ -779,14 +834,14 @@ Safe, sandboxed environment for testing emergency flight procedures.
 - **Safety Interlock Modal:** Prevents accidental simulation activation in active flight monitoring modes with confirmation prompts.
 - **Dataset Preview Table:** Raw numeric inspection table showing step-by-step values surrounding the historical anomaly window.
 
-### Page 8: Event Log & Audit Ledger (`EventLogPage.jsx`)
+### Page 9: Event Log & Audit Ledger (`EventLogPage.jsx`)
 The comprehensive, unalterable mission black box.
 - **Visual Mission Flight Timeline:** 5-phase flight sequence indicator (Launch, Array Deployment, Nominal Operations, Anomaly Event, Anomaly Recovery).
 - **Multi-Category Filter Matrix:** One-click filters for `ALL`, `CRITICAL`, `WARNING`, `COMMAND_UPLINK`, `STREAM_RECONFIGURED`, and `INFO`.
 - **Global Search:** Fast full-text keyword filtering across event descriptions, operator IDs, and timestamps.
 - **Audit Export:** One-click JSON export button downloading the complete flight log for external archival.
 
-### Page 9: Mission Reports & Debrief Generator (`MissionReportsPage.jsx`)
+### Page 10: Mission Reports & Debrief Generator (`MissionReportsPage.jsx`)
 Certified flight debriefing engine featuring dual-view technology.
 - **Interactive Flight Debrief Card (On-Screen View):**
   - Swiss Neo-Brutalist design with high-contrast metadata badges and cryptographic SHA-256 flight notarization.
@@ -797,7 +852,7 @@ Certified flight debriefing engine featuring dual-view technology.
   - Re-formats into a publication-grade NASA Technical Document on crisp white A4 paper.
   - Classification banners (`[ UNCLASSIFIED / FORMAL ARCHIVE ]`), 1px black engineering grid tables, and dual official sign-off blocks signed by **Gene Kranz** (Flight Director) and **Dr. Eleanor Arroway** (Chief AI Scientist).
 
-### Page 10: Settings & RBAC Clearance Control (`SettingsPage.jsx`)
+### Page 11: Settings & RBAC Clearance Control (`SettingsPage.jsx`)
 Operational configuration, security clearance, and system diagnostics.
 - **Role-Based Clearance Switcher:** Toggle operational clearance between `FLIGHT_DIRECTOR` (Class-1 Command Authority) and `TELEMETRY_OBSERVER` (Class-3 Read-Only Monitor).
 - **Telemetry Sampling Rate:** Configurable WebSocket telemetry delivery interval (0.5s to 3.0s).
@@ -810,7 +865,7 @@ Mission-wide keyboard-driven command interface accessible from any page.
 - **Arrow-Key Auto-Scroll:** Smooth auto-scrolling synchronization using `scrollIntoView({ block: 'nearest', behavior: 'smooth' })` ensuring the selected card is always centered.
 - **Stationary Pointer Guard:** Prevents stationary mouse cursors from hijacking keyboard navigation as items scroll beneath the pointer.
 - **High-Contrast Swiss Palette:** Deep dark ink text (`#161514`), dark brown subtitles (`#5c3d28`), and amber badges for flawless contrast.
-- **Omni-Search Navigation:** Jump to any of the 10 pages, trigger simulation commands, or switch between all 82 telemetry channels in milliseconds.
+- **Omni-Search Navigation:** Jump to any of the 11 pages, trigger simulation commands, switch constellation focus between Alpha, Beta, and Gamma, or switch between all 82 telemetry channels in milliseconds.
 
 ---
 
@@ -918,6 +973,7 @@ d:\Competition\Hackspire\
 │       ├── pages/
 │       │   ├── WelcomePage.jsx          Animated landing page with WebGL shader
 │       │   ├── MissionOverviewPage.jsx  Executive dashboard and health matrix
+│       │   ├── FleetOverviewPage.jsx    Constellation fleet & ISL mesh topology deck
 │       │   ├── LiveTelemetryPage.jsx    Real-time telemetry and 82-channel charts
 │       │   ├── AnomalyCenterPage.jsx    Incident queue and Gemini reasoning analysis
 │       │   ├── SubsystemsPage.jsx       Detailed subsystem engineering monitors
@@ -928,7 +984,7 @@ d:\Competition\Hackspire\
 │       │   └── SettingsPage.jsx         RBAC clearance switcher & platform diagnostics
 │       │
 │       ├── components/
-│       │   ├── Header.jsx               Top console header with 82-channel picker & search
+│       │   ├── Header.jsx               Top console header with constellation & channel switcher
 │       │   ├── SilkWaves.jsx            Custom WebGL fragment shader for fluid waves
 │       │   ├── CommandPaletteModal.jsx  Ctrl+K command palette with auto-scrolling
 │       │   ├── StructuredMarkdown.jsx   Aerospace AST markdown parser (badges & pills)
@@ -938,7 +994,7 @@ d:\Competition\Hackspire\
 │       │   └── SynchronizedWaveformChart.jsx Multi-channel synchronized chart
 │       │
 │       ├── services/
-│       │   └── api.js                   REST API client (telemetry, AI, copilot, reports)
+│       │   └── api.js                   REST API client (telemetry, AI, copilot, reports, fleet)
 │       │
 │       └── data/
 │           └── mockData.js              Baseline nominal and anomaly flight parameters
@@ -961,17 +1017,18 @@ d:\Competition\Hackspire\
         │   └── client.py                Gemini client, 15+ model cascade, fallback net
         │
         ├── routers/
-        │   ├── websocket.py             WebSocket endpoint (/ws/telemetry)
+        │   ├── websocket.py             WebSocket endpoint (/ws/telemetry?spacecraft_id=)
         │   ├── telemetry.py             Telemetry snapshot REST endpoints
         │   ├── events.py                Anomaly detection and AI reasoning endpoints
         │   ├── copilot.py               Interactive aerospace copilot chat endpoint
-        │   └── reports.py               Flight debrief and audit export endpoints
+        │   ├── reports.py               Flight debrief and audit export endpoints
+        │   └── fleet.py                 Constellation fleet & ISL mesh endpoints
         │
         ├── services/
-        │   └── telemetry_service.py     TelemetryService: 82-channel simulator & detector
+        │   └── telemetry_service.py     TelemetryService: 3-spacecraft 82-channel matrix & ISL jitter
         │
         └── storage/
-            ├── db.py                    SQLite engine initialization with WAL mode
+            ├── db.py                    SQLite engine initialization with WAL mode & fleet tables
             ├── astra.db                 Persistent SQLite relational database file
             ├── event_store.py           In-memory event cache & JSON sync layer
             └── event_store.json         Disk-backed fallback JSON audit ledger
@@ -983,16 +1040,18 @@ d:\Competition\Hackspire\
 
 | Metric | Measured Value | Significance |
 |--------|----------------|--------------|
+| **Active Constellation Nodes** | **3 Spacecraft** | ASTRA-Alpha (LEO-SSO), Beta (LEO-Polar), Gamma (MEO) |
+| **Monitored Telemetry Channels** | **246 Channels** | 82 NASA sensor channels concurrently tracked × 3 craft |
 | **NASA SMAP P-3 Detection Rate** | **100%** | Flawlessly isolates real spaceflight anomaly window |
-| **Monitored Telemetry Channels** | **82 Channels** | Complete multi-subsystem spacecraft coverage |
 | **Aerospace Subsystems Covered** | **6 Disciplines** | EPS, TCS, ADCS, Avionics, TT&C, Environmental |
+| **Inter-Satellite Links (ISL)** | **3 Mesh Crosslinks** | Full-mesh Ka-band and Optical laser links with dynamic jitter |
 | **Statistical Step Threshold** | **0.3889** | Empirically calibrated against NASA ground truth |
 | **Telemetry Ingestion Rate** | **1.2 Seconds** | Real-time full-duplex WebSocket tick rate |
 | **AI Model Fallback Cascade** | **15+ Models** | High resilience against cloud rate limits and outages |
 | **Fallback Reasoner Latency** | **< 5 Milliseconds** | Deterministic local safety net guaranteeing uptime |
-| **Frontend Page Architecture** | **10 Pages + 1 Modal** | Full mission control platform navigation deck |
+| **Frontend Page Architecture** | **11 Pages + 1 Modal** | Full mission control platform navigation deck |
 | **Dual-View Output Modes** | **2 Views** | Interactive Swiss Brutalist Web UI vs NASA Print Whitepaper |
-| **Relational Database Tables** | **4 Tables** | SQLite WAL mode (`audit_log`, `anomalies`, `frames`, `commands`) |
+| **Relational Database Tables** | **6 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`) |
 | **Human Approval Enforcement** | **100% Immutable** | Hardcoded at AI prompt, schema, backend, and UI layers |
 | **RBAC Clearance Levels** | **2 Tiers** | `FLIGHT_DIRECTOR` vs `TELEMETRY_OBSERVER` |
 | **Crisis Peak Temperature** | **85.0°C** | Synthetic failure threshold (vs 15.2°C nominal) |
@@ -1007,12 +1066,13 @@ ASTRA represents a major leap forward in modern spacecraft mission control softw
 
 1. **Precision Change Detection:** Achieves 100% detection accuracy on genuine NASA SMAP flight telemetry using a 3-phase statistical detector.
 2. **Resilient AI Reasoning:** Harnesses Google Gemini across a 15+ model cascade with a deterministic aerospace fallback net that ensures zero downtime.
-3. **Comprehensive Multi-Channel Matrix:** Ingests and visualizes 82 NASA telemetry channels across 6 critical spacecraft subsystems with zero-drop dynamic switching.
-4. **Interactive Aerospace Copilot:** Features real-time technical dialogue powered by `StructuredMarkdown.jsx` rendering technical badges, pills, and engineering checklists.
-5. **Universal Command Palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>):** Provides rapid, keyboard-driven navigation with auto-scrolling synchronization and high-contrast styling.
-6. **Dual-View Flight Audit & NASA Debrief:** Automatically generates publication-grade NASA Technical Documents on pure white A4 paper with official sign-offs by Gene Kranz and Dr. Eleanor Arroway.
-7. **Crash-Resilient Database Persistence:** Guarantees permanent audit and telemetry history across server restarts via SQLite WAL mode and disk-backed JSON storage.
-8. **Immutable Human-in-the-Loop Safety:** Strictly enforces operator clearance and manual authorization at every architectural layer.
+3. **Multi-Spacecraft Constellation Fleet:** Concurrently monitors 3 spacecraft (Alpha, Beta, Gamma) across 246 total telemetry channels with dynamic Inter-Satellite Link (ISL) mesh tracking.
+4. **Comprehensive Multi-Channel Matrix:** Ingests and visualizes 82 NASA telemetry channels per spacecraft across 6 critical disciplines with zero-drop dynamic switching.
+5. **Interactive Aerospace Copilot:** Features real-time technical dialogue powered by `StructuredMarkdown.jsx` rendering technical badges, pills, and engineering checklists.
+6. **Universal Command Palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>):** Provides rapid, keyboard-driven navigation with auto-scrolling synchronization and high-contrast styling.
+7. **Dual-View Flight Audit & NASA Debrief:** Automatically generates publication-grade NASA Technical Documents on pure white A4 paper with official sign-offs by Gene Kranz and Dr. Eleanor Arroway.
+8. **Crash-Resilient Database Persistence:** Guarantees permanent audit and telemetry history across server restarts via SQLite WAL mode (6 tables) and disk-backed JSON storage.
+9. **Immutable Human-in-the-Loop Safety:** Strictly enforces operator clearance and manual authorization at every architectural layer.
 
 ---
 

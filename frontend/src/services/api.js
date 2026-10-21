@@ -181,3 +181,41 @@ export async function sendCopilotChat(query, history = []) {
   }
 }
 
+export async function fetchFleetStatus() {
+  try {
+    const res = await fetch(`${API_BASE}/fleet/status`);
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch fleet status:', err);
+    return null;
+  }
+}
+
+export async function fetchIslTopology() {
+  try {
+    const res = await fetch(`${API_BASE}/fleet/isl-topology`);
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to fetch ISL topology:', err);
+    return null;
+  }
+}
+
+export async function switchFleetSpacecraft(spacecraftId) {
+  try {
+    const res = await fetch(`${API_BASE}/fleet/switch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ spacecraft_id: spacecraftId }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to switch spacecraft:', err);
+    return null;
+  }
+}
+
+

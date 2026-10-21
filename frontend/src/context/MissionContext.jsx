@@ -15,6 +15,9 @@ import {
   getWsBase,
   fetchChannels,
   switchChannel,
+  fetchFleetStatus,
+  fetchIslTopology,
+  switchFleetSpacecraft,
 } from '../services/api';
 
 const MissionContext = createContext(null);
@@ -53,6 +56,68 @@ export const MissionProvider = ({ children }) => {
     'P-3', 'A-1', 'A-2', 'D-1', 'E-1', 'T-1', 'S-1', 'M-1', 'P-1', 'P-2'
   ]);
   const [activeChannel, setActiveChannel] = useState('P-3');
+
+  // Constellation Multi-Spacecraft Fleet State
+  const [activeSpacecraft, setActiveSpacecraftState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('astra_active_spacecraft') || 'ASTRA-ALPHA';
+    }
+    return 'ASTRA-ALPHA';
+  });
+
+  const [fleetNodes, setFleetNodes] = useState([
+    {
+      id: 'ASTRA-ALPHA',
+      name: 'ASTRA-Alpha (Flagship)',
+      orbit_regime: 'LEO-SSO (520 km)',
+      status: 'NOMINAL',
+      health_score: 98.6,
+      anomalies_count: 0,
+      monitored_channels: 82,
+      subsystems: { eps: 'NOMINAL', tcs: 'NOMINAL', adcs: 'NOMINAL', ttc: 'NOMINAL' },
+      telemetry: { temperature: 15.2, voltage: 24.1, battery_pct: 98.4, solar_input: 96.4, current_draw: 4.2, adcs_drift: 0.02, link_snr: 14.2, channel: 'P-3' }
+    },
+    {
+      id: 'ASTRA-BETA',
+      name: 'ASTRA-Beta (Relay Node)',
+      orbit_regime: 'LEO-POLAR (680 km)',
+      status: 'NOMINAL',
+      health_score: 97.4,
+      anomalies_count: 0,
+      monitored_channels: 82,
+      subsystems: { eps: 'NOMINAL', tcs: 'NOMINAL', adcs: 'NOMINAL', ttc: 'NOMINAL' },
+      telemetry: { temperature: 13.8, voltage: 24.4, battery_pct: 97.2, solar_input: 98.1, current_draw: 3.9, adcs_drift: 0.015, link_snr: 15.8, channel: 'P-1' }
+    },
+    {
+      id: 'ASTRA-GAMMA',
+      name: 'ASTRA-Gamma (Observation)',
+      orbit_regime: 'MEO (2,000 km)',
+      status: 'WARNING',
+      health_score: 89.1,
+      anomalies_count: 1,
+      monitored_channels: 82,
+      subsystems: { eps: 'NOMINAL', tcs: 'WARNING', adcs: 'NOMINAL', ttc: 'NOMINAL' },
+      telemetry: { temperature: 28.4, voltage: 23.8, battery_pct: 89.5, solar_input: 91.2, current_draw: 5.8, adcs_drift: 0.045, link_snr: 12.6, channel: 'T-2' }
+    }
+  ]);
+
+  const [islLinks, setIslLinks] = useState([
+    { id: 1, source_sat: 'ASTRA-ALPHA', target_sat: 'ASTRA-BETA', latency_ms: 18.4, packet_loss_pct: 0.01, snr_db: 16.8, status: 'OPTIMAL', throughput_mbps: 120.0, band: 'Ka-Band Crosslink' },
+    { id: 2, source_sat: 'ASTRA-BETA', target_sat: 'ASTRA-GAMMA', latency_ms: 34.2, packet_loss_pct: 0.03, snr_db: 13.5, status: 'NOMINAL', throughput_mbps: 95.0, band: 'Optical Laser Mesh' },
+    { id: 3, source_sat: 'ASTRA-GAMMA', target_sat: 'ASTRA-ALPHA', latency_ms: 28.6, packet_loss_pct: 0.02, snr_db: 14.9, status: 'NOMINAL', throughput_mbps: 105.0, band: 'Ka-Band Crosslink' }
+  ]);
+
+  const [fleetSummary, setFleetSummary] = useState({
+    total_spacecraft: 3,
+    active_spacecraft: 'ASTRA-ALPHA',
+    status: 'NOMINAL',
+    avg_health_score: 95.0,
+    total_monitored_channels: 246,
+    active_mesh_links: 3,
+    network_sync: '100% SYNCHRONIZED',
+    isl_avg_latency_ms: 27.1,
+    isl_avg_loss_pct: 0.02
+  });
 
   // Role-Based Access Control (RBAC)
   const [operatorRole, setOperatorRoleState] = useState(() => {
@@ -295,6 +360,13 @@ export const MissionProvider = ({ children }) => {
             setActiveChannel(chanData.active_channel);
           }
         }
+
+        const fleetData = await fetchFleetStatus();
+        if (fleetData) {
+          if (fleetData.fleet_summary) setFleetSummary(fleetData.fleet_summary);
+          if (fleetData.nodes) setFleetNodes(fleetData.nodes);
+          if (fleetData.isl_mesh) setIslLinks(fleetData.isl_mesh);
+        }
       } else {
         setIsBackendConnected(false);
       }
@@ -335,6 +407,19 @@ export const MissionProvider = ({ children }) => {
             if (data.type === 'TELEMETRY_TICK' || data.type === 'CONNECTION_ESTABLISHED') {
               const tel = data.telemetry;
               if (!tel) return;
+
+              if (data.spacecraft_id) {
+                setActiveSpacecraftState(data.spacecraft_id);
+              }
+              if (tel.fleet_nodes) {
+                setFleetNodes(Object.values(tel.fleet_nodes));
+              }
+              if (tel.isl_links) {
+                setIslLinks(tel.isl_links);
+              }
+              if (data.fleet_summary || tel.fleet_summary) {
+                setFleetSummary(data.fleet_summary || tel.fleet_summary);
+              }
 
               const nowTime = new Date().toLocaleTimeString();
               const isAnom = Boolean(tel.is_anomaly);
@@ -803,6 +888,60 @@ export const MissionProvider = ({ children }) => {
     switchSimulationMode('nasa_p3', startIndex);
   };
 
+  const switchActiveChannel = useCallback(async (channel) => {
+    const cleanCh = channel.trim().toUpperCase();
+    setActiveChannel(cleanCh);
+    try {
+      await switchChannel(cleanCh);
+    } catch (e) {
+      console.warn('Switch channel API warning:', e);
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'set_channel',
+        channel: cleanCh,
+      }));
+    }
+    setAuditLog((prev) => [
+      {
+        id: `evt_local_${Date.now()}`,
+        time: new Date().toLocaleTimeString(),
+        type: 'COMMAND_UPLINK',
+        message: `STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel ${cleanCh}.`,
+      },
+      ...prev,
+    ]);
+  }, []);
+
+  const switchSpacecraft = useCallback(async (spacecraftId) => {
+    const cleanId = spacecraftId.trim().toUpperCase();
+    setActiveSpacecraftState(cleanId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('astra_active_spacecraft', cleanId);
+    }
+    try {
+      await switchFleetSpacecraft(cleanId);
+    } catch (e) {
+      console.warn('Switch fleet spacecraft error:', e);
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'set_spacecraft',
+        spacecraft_id: cleanId,
+      }));
+    }
+    setAuditLog((prev) => [
+      {
+        id: `evt_local_${Date.now()}`,
+        time: new Date().toLocaleTimeString(),
+        type: 'COMMAND_UPLINK',
+        message: `STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ${cleanId}.`,
+      },
+      ...prev,
+    ]);
+    playAlertChime('normal');
+  }, [playAlertChime]);
+
   const selectedAnomaly =
     anomalies.find((a) => a.id === selectedAnomalyId) ||
     anomalies[0] ||
@@ -842,10 +981,17 @@ export const MissionProvider = ({ children }) => {
         isAnalyzing,
         triggerGeminiAnalysis,
         syncWithBackend,
-        // Future Implementations State
+        // Multi-Channel Telemetry Matrix
         availableChannels,
         activeChannel,
         switchActiveChannel,
+        // Constellation Fleet & Mesh View State
+        activeSpacecraft,
+        switchSpacecraft,
+        fleetNodes,
+        islLinks,
+        fleetSummary,
+        // RBAC & Settings
         operatorRole,
         setOperatorRole,
         hasCommandAuthority,

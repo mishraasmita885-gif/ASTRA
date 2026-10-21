@@ -42,14 +42,19 @@ manager = ConnectionManager()
 
 
 @router.websocket("/ws/telemetry")
-async def telemetry_stream_endpoint(websocket: WebSocket):
+async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = None):
     await manager.connect(websocket)
     try:
+        if spacecraft_id:
+            telemetry_service.set_spacecraft(spacecraft_id.strip().upper())
+
         # Send initial connection confirmation and state
         initial_state = telemetry_service.generate_next_tick()
         await websocket.send_text(json.dumps({
             "type": "CONNECTION_ESTABLISHED",
             "telemetry": initial_state,
+            "spacecraft_id": telemetry_service.active_spacecraft,
+            "fleet_summary": telemetry_service.get_fleet_summary(),
             "events_count": len(event_store.list_events())
         }))
 
@@ -81,6 +86,18 @@ async def telemetry_stream_endpoint(websocket: WebSocket):
                         "type": "CHANNEL_CHANGED",
                         "channel": ch
                     }))
+                elif action == "set_spacecraft":
+                    sc_id = data.get("spacecraft_id", "ASTRA-ALPHA").strip().upper()
+                    telemetry_service.set_spacecraft(sc_id)
+                    event_store.add_audit_entry(
+                        type_="COMMAND_UPLINK",
+                        subsystem=f"FLEET ({sc_id})",
+                        event=f"STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node {sc_id}."
+                    )
+                    await websocket.send_text(json.dumps({
+                        "type": "SPACECRAFT_CHANGED",
+                        "spacecraft_id": sc_id
+                    }))
                 elif action == "ping":
                     await websocket.send_text(json.dumps({"type": "PONG"}))
             except asyncio.TimeoutError:
@@ -95,6 +112,8 @@ async def telemetry_stream_endpoint(websocket: WebSocket):
             await websocket.send_text(json.dumps({
                 "type": "TELEMETRY_TICK",
                 "telemetry": tick,
+                "spacecraft_id": telemetry_service.active_spacecraft,
+                "fleet_summary": telemetry_service.get_fleet_summary(),
                 "active_events_count": len([e for e in events if e.status in ["ANOMALY_DETECTED", "UNDER_REVIEW"]]),
                 "latest_event": events[0].model_dump() if events else None
             }))

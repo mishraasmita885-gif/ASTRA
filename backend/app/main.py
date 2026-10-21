@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import telemetry, events, websocket
+from app.routers import telemetry, events, websocket, fleet
 from app.services.telemetry_service import telemetry_service
 
 logging.basicConfig(
@@ -57,6 +57,7 @@ app.add_middleware(
 # Mount REST and WebSocket routers
 app.include_router(telemetry.router, prefix=settings.API_V1_STR, tags=["Telemetry & Metrics"])
 app.include_router(events.router, prefix=settings.API_V1_STR, tags=["Anomaly Events & AI"])
+app.include_router(fleet.router, prefix=f"{settings.API_V1_STR}/fleet", tags=["Constellation Fleet & ISL Mesh"])
 app.include_router(websocket.router, tags=["Real-time Stream"])
 
 

@@ -28,6 +28,10 @@ export const Header = () => {
     availableChannels,
     activeChannel,
     switchActiveChannel,
+    activeSpacecraft,
+    switchSpacecraft,
+    fleetNodes,
+    fleetSummary,
     operatorRole,
     setOperatorRole,
     hasCommandAuthority,
@@ -35,6 +39,7 @@ export const Header = () => {
 
   const [isPaletteOpen, setIsPaletteOpen] = useState(false);
   const [isChannelDropdownOpen, setIsChannelDropdownOpen] = useState(false);
+  const [isConstellationDropdownOpen, setIsConstellationDropdownOpen] = useState(false);
   const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
   const [channelSearch, setChannelSearch] = useState('');
 
@@ -87,8 +92,101 @@ export const Header = () => {
           </div>
         </div>
 
-        {/* Right Controls: Channel Ingestion, Backend Status, Crisis, RBAC Profile */}
-        <div className="flex items-center gap-2.5 sm:gap-3 pl-3">
+        {/* Right Controls: Constellation Switcher, Channel Ingestion, Backend Status, Crisis, RBAC Profile */}
+        <div className="flex items-center gap-2 sm:gap-2.5 pl-2">
+          {/* Constellation Multi-Spacecraft Fleet Switcher */}
+          <div className="relative">
+            <button
+              onClick={() => setIsConstellationDropdownOpen((prev) => !prev)}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#f8f5ee] hover:bg-white text-[#24140b] border-2 border-[#24140b] shadow-[2px_2px_0px_0px_#24140b] font-mono text-xs font-bold transition-all cursor-pointer active:translate-x-0.5 active:translate-y-0.5"
+              title="Select Active Constellation Spacecraft"
+            >
+              <span className="text-sm">🛰️</span>
+              <span className="hidden sm:inline font-bold">
+                {activeSpacecraft === 'ASTRA-ALPHA'
+                  ? 'Alpha'
+                  : activeSpacecraft === 'ASTRA-BETA'
+                  ? 'Beta'
+                  : 'Gamma'}
+              </span>
+              <span className="sm:hidden font-bold">{activeSpacecraft ? activeSpacecraft.replace('ASTRA-', '') : 'Alpha'}</span>
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  activeSpacecraft === 'ASTRA-GAMMA' ? 'bg-amber-500' : 'bg-emerald-500'
+                } animate-pulse`}
+              />
+              <ChevronDown className="w-3 h-3 text-[#73533e]" />
+            </button>
+
+            {isConstellationDropdownOpen && (
+              <div
+                className="absolute right-0 mt-2 w-72 rounded-2xl bg-[#f8f5ee] border-2 border-[#24140b] shadow-[4px_4px_0px_0px_#24140b] p-2 z-50 flex flex-col gap-1.5 animate-in fade-in zoom-in-95"
+                onMouseLeave={() => setIsConstellationDropdownOpen(false)}
+              >
+                <div className="flex items-center justify-between px-2 py-1 border-b border-[#24140b]/20">
+                  <span className="text-[10px] font-mono font-bold text-[#73533e] uppercase">
+                    Constellation Fleet Nodes
+                  </span>
+                  <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-[#ebdccb] text-[#24140b] border border-[#24140b]/30">
+                    3 ACTIVE NODES
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-1 p-0.5">
+                  {(fleetNodes || []).map((node) => {
+                    const isSelected = node.id === activeSpacecraft;
+                    return (
+                      <button
+                        key={node.id}
+                        onClick={() => {
+                          switchSpacecraft(node.id);
+                          setIsConstellationDropdownOpen(false);
+                        }}
+                        style={
+                          isSelected
+                            ? { backgroundColor: '#452a19', color: '#fbf7f0' }
+                            : { backgroundColor: '#fbf7f0', color: '#24140b' }
+                        }
+                        className={`px-2.5 py-2 rounded-xl text-xs font-mono text-left flex items-center justify-between transition-colors cursor-pointer border ${
+                          isSelected
+                            ? 'border-[#24140b] shadow-[1px_1px_0px_0px_#24140b]'
+                            : 'border-[#4a2e1b]/20 hover:border-[#24140b]'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">🛰️</span>
+                          <div className="flex flex-col">
+                            <span className="font-bold text-xs">{node.name}</span>
+                            <span className={`text-[10px] ${isSelected ? 'text-[#ebdccb]' : 'text-[#73533e]'}`}>
+                              {node.orbit_regime}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                              node.status === 'CRITICAL'
+                                ? 'bg-red-500 text-white'
+                                : node.status === 'WARNING'
+                                ? 'bg-amber-400 text-[#24140b]'
+                                : 'bg-emerald-600 text-white'
+                            }`}
+                          >
+                            {node.status}
+                          </span>
+                          <span className={`text-[10px] font-bold ${isSelected ? 'text-[#fea619]' : 'text-[#24140b]'}`}>
+                            {node.health_score}%
+                          </span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Feature 1: Multi-Channel Ingestion Dropdown */}
           <div className="relative">
             <button

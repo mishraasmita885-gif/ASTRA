@@ -36,6 +36,9 @@ export const CommandPaletteModal = ({ isOpen, onClose }) => {
     switchActiveChannel,
     operatorRole,
     setOperatorRole,
+    activeSpacecraft,
+    switchSpacecraft,
+    fleetNodes,
   } = useMission();
 
   const [query, setQuery] = useState('');
@@ -70,6 +73,17 @@ export const CommandPaletteModal = ({ isOpen, onClose }) => {
         icon: Boxes,
         action: () => {
           setActiveTab('overview');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-fleet',
+        category: 'NAVIGATION',
+        title: 'Constellation Fleet & ISL Mesh View',
+        subtitle: 'Multi-spacecraft status, inter-satellite links, and 246-channel telemetry overview',
+        icon: Radio,
+        action: () => {
+          setActiveTab('fleet');
           onClose();
         },
       },
@@ -161,6 +175,20 @@ export const CommandPaletteModal = ({ isOpen, onClose }) => {
           onClose();
         },
       },
+
+      // Constellation Fleet Nodes
+      ...(fleetNodes || []).map((node) => ({
+        id: `node-${node.id}`,
+        category: 'CONSTELLATION FLEET',
+        title: `Switch Spacecraft: ${node.name} (${node.id}) ${node.id === activeSpacecraft ? '(ACTIVE)' : ''}`,
+        subtitle: `Orbit: ${node.orbit_regime} | Status: ${node.status} | Health Score: ${node.health_score ? Number(node.health_score).toFixed(1) : '98.5'}%`,
+        icon: Radio,
+        badge: node.id === activeSpacecraft ? 'ACTIVE' : 'SWITCH',
+        action: () => {
+          switchSpacecraft(node.id);
+          onClose();
+        },
+      })),
 
       // Channels
       ...availableChannels.map((ch) => ({
