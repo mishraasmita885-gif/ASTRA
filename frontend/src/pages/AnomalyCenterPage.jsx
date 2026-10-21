@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMission } from '../context/MissionContext';
 import { AnomalyWaveformChart } from '../components/AnomalyWaveformChart';
+import { fetchMetrics } from '../services/api';
 import {
   ShieldAlert,
   AlertTriangle,
@@ -34,6 +35,44 @@ export const AnomalyCenterPage = () => {
   } = useMission();
 
   const [activeTab, setActiveTab] = useState('inspector'); // 'inspector' | 'benchmarks'
+  const [metrics, setMetrics] = useState({
+    nasa_68_channel_benchmark: {
+      channels_evaluated: 68,
+      total_anomaly_events: 87,
+      accuracy: 80.39,
+      precision: 24.11,
+      recall: 33.80,
+      f1_score: 28.14,
+      event_detection_rate: 81.61,
+      detected_events: '71/87',
+    },
+    p3_demonstration: {
+      channel: 'P-3',
+      accuracy: 96.70,
+      precision: 99.91,
+      recall: 79.12,
+      f1_score: 88.30,
+      event_detection_rate: 100.0,
+      verified_event: '5400 -> 6656 (100% caught)',
+    },
+  });
+  const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadMetrics() {
+      setIsMetricsLoading(true);
+      const data = await fetchMetrics();
+      if (isMounted && data) {
+        setMetrics(data);
+      }
+      if (isMounted) setIsMetricsLoading(false);
+    }
+    loadMetrics();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const getSeverityBadge = (sev) => {
     switch (sev) {
@@ -109,43 +148,56 @@ export const AnomalyCenterPage = () => {
               <span className="px-2.5 py-1 rounded-full bg-sky-100 text-sky-800 font-mono text-xs font-bold">
                 P-3 Channel Demo
               </span>
-              <span className="text-xs font-mono text-[#736f68]">Change Detection + Event Logic</span>
+              <span className="text-xs font-mono text-[#736f68] flex items-center gap-1.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${isMetricsLoading ? 'bg-amber-500 animate-ping' : 'bg-emerald-500'}`} />
+                {isMetricsLoading ? 'Syncing...' : 'Live GET /api/metrics'}
+              </span>
             </div>
             <h2 className="font-display font-bold text-xl text-[#161514]">
               P-3 Demonstration Performance
             </h2>
             <p className="text-xs font-mono text-[#736f68]">
-              Evaluated specifically on channel P-3 test stream reproducing event 5400 → 6656.
+              {metrics.p3_demonstration?.description || 'Evaluated specifically on channel P-3 test stream reproducing event 5400 → 6656.'}
             </p>
 
             <div className="grid grid-cols-2 gap-3 mt-2 font-mono">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">Accuracy</span>
-                <span className="text-xl font-bold text-emerald-600">96.70%</span>
+                <span className="text-xl font-bold text-emerald-600">
+                  {metrics.p3_demonstration?.accuracy?.toFixed(2)}%
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">Precision</span>
-                <span className="text-xl font-bold text-emerald-600">99.91%</span>
+                <span className="text-xl font-bold text-emerald-600">
+                  {metrics.p3_demonstration?.precision?.toFixed(2)}%
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">Recall</span>
-                <span className="text-xl font-bold text-[#161514]">79.12%</span>
+                <span className="text-xl font-bold text-[#161514]">
+                  {metrics.p3_demonstration?.recall?.toFixed(2)}%
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">F1 Score</span>
-                <span className="text-xl font-bold text-purple-700">88.30%</span>
+                <span className="text-xl font-bold text-purple-700">
+                  {metrics.p3_demonstration?.f1_score?.toFixed(2)}%
+                </span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-mono text-emerald-900 flex items-center justify-between">
               <span>Event Detection Rate:</span>
-              <span className="font-bold text-sm">100% (Event 5400→6656 caught)</span>
+              <span className="font-bold text-sm">
+                {metrics.p3_demonstration?.event_detection_rate}% ({metrics.p3_demonstration?.verified_event || 'Event 5400→6656 caught'})
+              </span>
             </div>
 
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-mono text-amber-900 flex items-start gap-2">
               <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
               <span>
-                <strong>Important:</strong> 96.70% is the P-3 demonstration result, not the overall system accuracy across all spacecraft channels.
+                <strong>Important:</strong> {metrics.p3_demonstration?.warning || '96.70% is the P-3 demonstration result, not the overall system accuracy across all spacecraft channels.'}
               </span>
             </div>
           </div>
@@ -156,37 +208,49 @@ export const AnomalyCenterPage = () => {
               <span className="px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 font-mono text-xs font-bold">
                 NASA Benchmark
               </span>
-              <span className="text-xs font-mono text-[#736f68]">68 Channels / 87 Anomaly Events</span>
+              <span className="text-xs font-mono text-[#736f68]">
+                {metrics.nasa_68_channel_benchmark?.channels_evaluated || 68} Channels / {metrics.nasa_68_channel_benchmark?.total_anomaly_events || 87} Anomaly Events
+              </span>
             </div>
             <h2 className="font-display font-bold text-xl text-[#161514]">
               Overall 68-Channel Benchmark
             </h2>
             <p className="text-xs font-mono text-[#736f68]">
-              Comprehensive aerospace evaluation across diverse multi-channel telemetry streams.
+              {metrics.nasa_68_channel_benchmark?.description || 'Comprehensive aerospace evaluation across diverse multi-channel telemetry streams.'}
             </p>
 
             <div className="grid grid-cols-2 gap-3 mt-2 font-mono">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">Accuracy</span>
-                <span className="text-xl font-bold text-[#161514]">80.39%</span>
+                <span className="text-xl font-bold text-[#161514]">
+                  {metrics.nasa_68_channel_benchmark?.accuracy?.toFixed(2)}%
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">Precision</span>
-                <span className="text-xl font-bold text-[#161514]">24.11%</span>
+                <span className="text-xl font-bold text-[#161514]">
+                  {metrics.nasa_68_channel_benchmark?.precision?.toFixed(2)}%
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">Recall</span>
-                <span className="text-xl font-bold text-[#161514]">33.80%</span>
+                <span className="text-xl font-bold text-[#161514]">
+                  {metrics.nasa_68_channel_benchmark?.recall?.toFixed(2)}%
+                </span>
               </div>
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] text-[#736f68] uppercase block">F1 Score</span>
-                <span className="text-xl font-bold text-purple-700">28.14%</span>
+                <span className="text-xl font-bold text-purple-700">
+                  {metrics.nasa_68_channel_benchmark?.f1_score?.toFixed(2)}%
+                </span>
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-xs font-mono text-purple-900 flex items-center justify-between">
               <span>Event Detection Rate:</span>
-              <span className="font-bold text-sm">81.61% (71 / 87 Events Detected)</span>
+              <span className="font-bold text-sm">
+                {metrics.nasa_68_channel_benchmark?.event_detection_rate}% ({metrics.nasa_68_channel_benchmark?.detected_events || '71 / 87'} Events Detected)
+              </span>
             </div>
 
             <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-mono text-[#736f68]">

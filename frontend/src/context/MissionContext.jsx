@@ -13,12 +13,137 @@ import {
   setSimulationMode,
   fetchAuditLog,
   getWsBase,
+  fetchChannels,
+  switchChannel,
 } from '../services/api';
 
 const MissionContext = createContext(null);
 
 export const MissionProvider = ({ children }) => {
-  const [activeTab, setActiveTab] = useState('welcome');
+  // Client-Side URL Hash Routing
+  const getInitialTab = () => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      const hash = window.location.hash.replace(/^#\/?/, '');
+      if (hash) return hash;
+    }
+    return 'welcome';
+  };
+  const [activeTab, setActiveTabState] = useState(getInitialTab);
+
+  const setActiveTab = useCallback((tab) => {
+    setActiveTabState(tab);
+    if (typeof window !== 'undefined') {
+      window.location.hash = `#${tab}`;
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace(/^#\/?/, '');
+      if (hash && hash !== activeTab) {
+        setActiveTabState(hash);
+      }
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [activeTab]);
+
+  // Multi-Channel Ingestion State
+  const [availableChannels, setAvailableChannels] = useState([
+    'P-3', 'A-1', 'A-2', 'D-1', 'E-1', 'T-1', 'S-1', 'M-1', 'P-1', 'P-2'
+  ]);
+  const [activeChannel, setActiveChannel] = useState('P-3');
+
+  // Role-Based Access Control (RBAC)
+  const [operatorRole, setOperatorRoleState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('astra_operator_role') || 'FLIGHT_DIRECTOR';
+    }
+    return 'FLIGHT_DIRECTOR';
+  });
+
+  const setOperatorRole = useCallback((role) => {
+    setOperatorRoleState(role);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('astra_operator_role', role);
+    }
+  }, []);
+
+  const hasCommandAuthority = operatorRole === 'FLIGHT_DIRECTOR';
+
+  // Dedicated Settings Configuration
+  const [settingsConfig, setSettingsConfigState] = useState(() => {
+    const defaultSettings = {
+      geminiModel: 'gemini-2.5-flash',
+      customApiKey: '',
+      detectionThreshold: 0.3889,
+      wsBroadcastInterval: 1.2,
+      audioAlertsEnabled: true,
+    };
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('astra_settings');
+        if (stored) return { ...defaultSettings, ...JSON.parse(stored) };
+      } catch (e) {
+        console.warn('Failed parsing astra_settings:', e);
+      }
+    }
+    return defaultSettings;
+  });
+
+  const updateSettingsConfig = useCallback((newSettings) => {
+    setSettingsConfigState((prev) => {
+      const updated = { ...prev, ...newSettings };
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('astra_settings', JSON.stringify(updated));
+      }
+      return updated;
+    });
+  }, []);
+
+  // Web Audio Alert Synthesizer
+  const playAlertChime = useCallback((type = 'warning') => {
+    if (!settingsConfig.audioAlertsEnabled || typeof window === 'undefined') return;
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      const now = ctx.currentTime;
+      if (type === 'critical') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, now);
+        osc.frequency.exponentialRampToValueAtTime(440, now + 0.3);
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } else if (type === 'success') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now);
+        osc.frequency.setValueAtTime(659.25, now + 0.1);
+        osc.frequency.setValueAtTime(783.99, now + 0.2);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } else {
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(587.33, now);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+    } catch (e) {
+      console.warn('Audio chime notice:', e);
+    }
+  }, [settingsConfig.audioAlertsEnabled]);
+
   const [isCrisis, setIsCrisis] = useState(false);
   const [selectedAnomalyId, setSelectedAnomalyId] = useState('ASTRA-P3-0001');
   const [telemetry, setTelemetry] = useState(INITIAL_TELEMETRY);
@@ -68,6 +193,14 @@ export const MissionProvider = ({ children }) => {
     selectedAnomalyIdRef.current = selectedAnomalyId;
   }, [selectedAnomalyId]);
 
+  // Keep commands synced with currently selected anomaly
+  useEffect(() => {
+    const current = anomalies.find((a) => a.id === selectedAnomalyId) || anomalies[0];
+    if (current && current.commands && current.commands.length > 0) {
+      setCommands(current.commands);
+    }
+  }, [selectedAnomalyId, anomalies]);
+
   // Poll initial backend health and sync events
   const syncWithBackend = useCallback(async () => {
     try {
@@ -103,10 +236,10 @@ export const MissionProvider = ({ children }) => {
               { rule: 'EVENT_PERSISTENCE_BUFFER (15-pt buffer, 250-pt merge)', actual: `${evt.duration} cycles`, tripped: true },
             ],
             geminiDiagnosis: evt.gemini_analysis ? {
-              model: 'ASTRA Neural AI Reasoner',
+              model: evt.gemini_analysis.model_used || 'Google Gemini Mission Reasoner',
               rootCause: evt.gemini_analysis.diagnosis,
-              survivalProbability: 78,
-              timeToExhaustion: '24m 10s',
+              survivalProbability: evt.gemini_analysis.survival_probability ?? (evt.gemini_analysis.severity === 'CRITICAL' ? 68 : evt.gemini_analysis.severity === 'HIGH' ? 82 : 95),
+              timeToExhaustion: evt.gemini_analysis.time_to_exhaustion || (evt.gemini_analysis.severity === 'CRITICAL' ? '12m 40s' : '36m 15s'),
               evidence: evt.gemini_analysis.evidence,
               recommendedAction: evt.gemini_analysis.recommendation,
               operator_approval_required: evt.gemini_analysis.operator_approval_required,
@@ -137,14 +270,30 @@ export const MissionProvider = ({ children }) => {
             setSelectedAnomalyId(formatted[0].id);
           }
         }
-        const logs = await fetchAuditLog(30);
+        const logs = await fetchAuditLog(50);
         if (logs && logs.length > 0) {
-          setAuditLog(logs.map((l) => ({
+          const backendFormatted = logs.map((l) => ({
             id: l.id,
             time: l.time,
             type: l.type,
             message: l.event,
-          })));
+          }));
+          setAuditLog((prev) => {
+            const backendIds = new Set(backendFormatted.map((b) => b.id));
+            const backendMsgs = new Set(backendFormatted.map((b) => b.message));
+            const localPending = prev.filter(
+              (p) => !backendIds.has(p.id) && !backendMsgs.has(p.message) && String(p.id).startsWith('evt_local_')
+            );
+            return [...localPending, ...backendFormatted].slice(0, 60);
+          });
+        }
+
+        const chanData = await fetchChannels();
+        if (chanData && chanData.channels && chanData.channels.length > 0) {
+          setAvailableChannels(chanData.channels);
+          if (chanData.active_channel) {
+            setActiveChannel(chanData.active_channel);
+          }
         }
       } else {
         setIsBackendConnected(false);
@@ -175,7 +324,8 @@ export const MissionProvider = ({ children }) => {
           if (isCleanedUp) return;
           setIsBackendConnected(true);
           syncWithBackend();
-          console.log('[ASTRA WS] Connected to live telemetry backend:', wsUrl);
+          if (typeof window !== 'undefined') window.ASTRA_WS = ws;
+          console.info('[ASTRA WS] Connected to live telemetry backend:', wsUrl);
         };
 
         ws.onmessage = (event) => {
@@ -221,33 +371,97 @@ export const MissionProvider = ({ children }) => {
                 },
               ]);
 
-              // Update subsystems if anomaly
-              if (isAnom) {
-                setSubsystems((prev) => [
-                  {
-                    ...prev[0],
-                    status: 'CRITICAL',
-                    metrics: [
-                      { label: 'Bus Voltage', value: `${tel.voltage} V`, nominal: '24.0 - 28.0 V' },
-                      { label: 'Li-Ion Battery', value: `${tel.battery_pct}%`, nominal: '> 70%' },
-                      { label: 'Solar Input', value: `${tel.solar_input}%`, nominal: '> 80%' },
-                    ],
-                  },
-                  {
-                    ...prev[1],
-                    status: tel.temperature > 40 ? 'WARNING' : 'HEALTHY',
-                    metrics: [
-                      { label: 'Avionics Core', value: `${tel.temperature} °C`, nominal: '10 - 30 °C' },
-                      { label: 'Radiator Loop 1', value: '78% Deploy', nominal: 'Active' },
-                      { label: 'Heat Gradient', value: '2.1 W/cm²', nominal: '< 1.5 W/cm²' },
-                    ],
-                  },
-                  prev[2],
-                  prev[3],
-                ]);
-              } else {
-                setSubsystems(INITIAL_SUBSYSTEMS);
-              }
+              // Calculate dynamic subsystem states across all four avionics components
+              const epsStatus = (tel.voltage < 20 || tel.battery_pct < 60)
+                ? 'CRITICAL'
+                : (tel.voltage < 23 || tel.solar_input < 60)
+                ? 'WARNING'
+                : 'HEALTHY';
+
+              const tcsStatus = tel.temperature > 70
+                ? 'CRITICAL'
+                : tel.temperature > 35
+                ? 'WARNING'
+                : 'HEALTHY';
+
+              const ttcStatus = (tel.link_snr != null && tel.link_snr < 9)
+                ? 'CRITICAL'
+                : (tel.link_snr != null && tel.link_snr < 11.5)
+                ? 'WARNING'
+                : 'HEALTHY';
+
+              const adcsStatus = (tel.adcs_drift != null && tel.adcs_drift > 0.3)
+                ? 'CRITICAL'
+                : (tel.adcs_drift != null && tel.adcs_drift > 0.05)
+                ? 'WARNING'
+                : 'HEALTHY';
+
+              setSubsystems([
+                {
+                  id: 'eps',
+                  name: 'POWER (EPS)',
+                  fullName: 'Electrical Power Subsystem',
+                  status: epsStatus,
+                  metrics: [
+                    { label: 'Bus Voltage', value: `${tel.voltage != null ? Number(tel.voltage).toFixed(1) : '24.1'} V`, nominal: '24.0 - 28.0 V' },
+                    { label: 'Li-Ion Battery', value: `${tel.battery_pct != null ? Number(tel.battery_pct).toFixed(1) : '98.4'}%`, nominal: '> 70%' },
+                    { label: 'Solar Input', value: `${tel.solar_input != null ? Number(tel.solar_input).toFixed(1) : '96.4'}%`, nominal: '> 80%' },
+                  ],
+                  details: epsStatus === 'CRITICAL'
+                    ? 'CRITICAL: Severe undervoltage / solar array fault. Automated load-shedding active.'
+                    : epsStatus === 'WARNING'
+                    ? 'WARNING: Bus margin degraded. Battery discharging under secondary load.'
+                    : 'Dual array sun-tracking active (4.82 kW). Shunt limiters S3R nominal.',
+                },
+                {
+                  id: 'tcs',
+                  name: 'THERMAL (TCS)',
+                  fullName: 'Thermal Control Subsystem',
+                  status: tcsStatus,
+                  metrics: [
+                    { label: 'Avionics Core', value: `${tel.temperature != null ? Number(tel.temperature).toFixed(1) : '15.2'} °C`, nominal: '10 - 30 °C' },
+                    { label: 'Radiator Loop 1', value: tel.temperature > 50 ? '98% Deploy' : tel.temperature > 30 ? '78% Deploy' : '45% Deploy', nominal: 'Active' },
+                    { label: 'Heat Gradient', value: `${(0.8 + (tel.temperature > 30 ? (tel.temperature - 30) * 0.04 : 0)).toFixed(1)} W/cm²`, nominal: '< 1.5 W/cm²' },
+                  ],
+                  details: tcsStatus === 'CRITICAL'
+                    ? 'CRITICAL: Avionics core exceeding thermal ceiling. Emergency louvers 100% open.'
+                    : tcsStatus === 'WARNING'
+                    ? 'WARNING: Radiator loop saturated. Heat pipe gradient elevated.'
+                    : 'Thermostats in deadband. Freon circulating nominal.',
+                },
+                {
+                  id: 'ttc',
+                  name: 'COMMUNICATIONS (TT&C)',
+                  fullName: 'Telemetry, Tracking & Command',
+                  status: ttcStatus,
+                  metrics: [
+                    { label: 'Ground Station', value: 'DSN Madrid-63', nominal: 'Complex 63' },
+                    { label: 'S-Band SNR', value: `${tel.link_snr != null ? (tel.link_snr > 0 ? '+' : '') + Number(tel.link_snr).toFixed(1) : '+14.2'} dBm`, nominal: '> +10 dBm' },
+                    { label: 'Packet Rate', value: `${tel.packet_rate != null ? Number(tel.packet_rate).toFixed(1) : '10.0'} pkts/s`, nominal: '10.0 pkts/s' },
+                  ],
+                  details: ttcStatus === 'CRITICAL'
+                    ? 'CRITICAL: Severe carrier attenuation. High packet drops on Madrid uplink.'
+                    : ttcStatus === 'WARNING'
+                    ? 'WARNING: S-Band SNR margin reduced. Antenna pointing jitter detected.'
+                    : 'High-gain dish locked on Madrid carrier (7.195 GHz). SNR nominal.',
+                },
+                {
+                  id: 'adcs',
+                  name: 'ATTITUDE (ADCS)',
+                  fullName: 'Attitude Determination & Control',
+                  status: adcsStatus,
+                  metrics: [
+                    { label: 'Pointing Lock', value: tel.adcs_drift > 0.3 ? 'LOST - Slew' : tel.adcs_drift > 0.05 ? 'Jitter Lock' : '+Z Earth Facing', nominal: 'Locked' },
+                    { label: 'Gyro Drift', value: `${tel.adcs_drift != null ? Number(tel.adcs_drift).toFixed(3) : '0.020'} °/hr`, nominal: '< 0.05 °/hr' },
+                    { label: 'Reaction Wheels', value: `${Math.round(3240 + (tel.adcs_drift > 0.05 ? Math.min(2700, tel.adcs_drift * 3200) : 0)).toLocaleString()} RPM`, nominal: '< 6,000 RPM' },
+                  ],
+                  details: adcsStatus === 'CRITICAL'
+                    ? 'CRITICAL: Spacecraft tumbling detected! Angular momentum dump required.'
+                    : adcsStatus === 'WARNING'
+                    ? 'WARNING: Reaction wheel saturation risk. Gyro drift rate elevated.'
+                    : '14 Star trackers acquired. Quaternion precision: 0.001 deg.',
+                },
+              ]);
             }
           } catch (e) {
             console.error('[ASTRA WS] Error parsing WebSocket frame:', e);
@@ -294,10 +508,10 @@ export const MissionProvider = ({ children }) => {
                   status: 'UNDER_REVIEW',
                   mlConfidence: `${Math.round(res.analysis.confidence * 100)}%`,
                   geminiDiagnosis: {
-                    model: 'ASTRA Neural AI Reasoner',
+                    model: res.analysis.model_used || 'Google Gemini Mission Reasoner',
                     rootCause: res.analysis.diagnosis,
-                    survivalProbability: 80,
-                    timeToExhaustion: '22m 30s',
+                    survivalProbability: res.analysis.survival_probability ?? (res.analysis.severity === 'CRITICAL' ? 68 : res.analysis.severity === 'HIGH' ? 82 : 95),
+                    timeToExhaustion: res.analysis.time_to_exhaustion || (res.analysis.severity === 'CRITICAL' ? '12m 40s' : '36m 15s'),
                     evidence: res.analysis.evidence,
                     recommendedAction: res.analysis.recommendation,
                     operator_approval_required: res.analysis.operator_approval_required,
@@ -319,16 +533,79 @@ export const MissionProvider = ({ children }) => {
     }
   };
 
-  // Human-in-the-Loop Operator Command Approval
+  // Multi-Channel Telemetry Stream Switcher
+  const switchActiveChannel = useCallback(async (channel) => {
+    const channelClean = String(channel).trim().toUpperCase();
+    setActiveChannel(channelClean);
+    const now = new Date().toTimeString().split(' ')[0];
+    const localId = `evt_local_${Date.now()}`;
+    setAuditLog((prev) => [
+      {
+        id: localId,
+        time: now,
+        type: 'COMMAND_UPLINK',
+        message: `STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel ${channelClean}.`,
+      },
+      ...prev,
+    ]);
+    try {
+      await switchChannel(channelClean);
+    } catch (e) {
+      console.warn('REST switchChannel notice:', e);
+    }
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'set_channel',
+        channel: channelClean,
+      }));
+    }
+    setTimeout(() => {
+      syncWithBackend();
+    }, 400);
+  }, [syncWithBackend]);
+
+  // Human-in-the-Loop Operator Command Approval (Enforces RBAC)
   const approveCommand = async (commandId, note = '') => {
-    setCommands((prev) =>
-      prev.map((cmd) => (cmd.id === commandId ? { ...cmd, status: 'APPROVED' } : cmd))
+    if (!hasCommandAuthority) {
+      const now = new Date().toTimeString().split(' ')[0];
+      setAuditLog((prev) => [
+        {
+          id: `evt_${Date.now()}`,
+          time: now,
+          type: 'WARNING',
+          message: `ACCESS DENIED: Command authorization rejected. Telemetry Observers do not possess Flight Director uplink clearance.`,
+        },
+        ...prev,
+      ]);
+      alert("Access Denied: Flight Director clearance is required to authorize spacecraft contingency commands.");
+      return;
+    }
+
+    const updatedCommands = commands.map((cmd) => (cmd.id === commandId ? { ...cmd, status: 'APPROVED' } : cmd));
+    setCommands(updatedCommands);
+
+    setAnomalies((prev) =>
+      prev.map((anm) =>
+        anm.id === selectedAnomalyId
+          ? {
+              ...anm,
+              status: 'RESOLVED',
+              commands: (anm.commands || []).map((cmd) =>
+                cmd.id === commandId ? { ...cmd, status: 'APPROVED' } : cmd
+              ),
+            }
+          : anm
+      )
     );
 
     // If attached to an anomaly event, record approval in backend
     const currentEvtId = selectedAnomalyId;
     if (currentEvtId) {
-      await approveEvent(currentEvtId, true, 'Flight Director Gene Kranz', note || 'Procedure verified nominal.');
+      try {
+        await approveEvent(currentEvtId, true, 'Flight Director Gene Kranz', note || 'Procedure verified nominal.');
+      } catch (err) {
+        console.warn('Backend event approval warning:', err);
+      }
     }
 
     const now = new Date().toTimeString().split(' ')[0];
@@ -341,16 +618,75 @@ export const MissionProvider = ({ children }) => {
       },
       ...prev,
     ]);
+
+    playAlertChime('success');
+
+    // Spacecraft Recovery: Immediately restore React state to nominal
+    setIsCrisis(false);
+    setTelemetry((prev) => ({
+      ...prev,
+      voltage: 24.1,
+      temperature: 15.2,
+      battery_pct: 98.4,
+      solar_input: 96.4,
+      current_draw: 4.2,
+      anomaly_score: 0.02,
+      is_anomaly: false,
+      mode: 'nominal',
+    }));
+    setSubsystems(INITIAL_SUBSYSTEMS);
+
+    // Send reset to backend via WebSocket and REST dual-channel
+    resetToNominal();
+    try {
+      await setSimulationMode('nominal', 0);
+    } catch (e) {
+      console.warn('Simulation mode sync warning:', e);
+    }
+
+    const recTime = new Date().toTimeString().split(' ')[0];
+    setAuditLog((prev) => [
+      {
+        id: `evt_${Date.now()}`,
+        time: recTime,
+        type: 'NOMINAL',
+        message: `SPACECRAFT RECOVERY CONFIRMED: Safe-state uplink executed. Telemetry restored to nominal envelope.`,
+      },
+      ...prev,
+    ]);
   };
 
   const rejectCommand = async (commandId, note = '') => {
+    if (!hasCommandAuthority) {
+      alert("Access Denied: Flight Director clearance is required to reject spacecraft commands.");
+      return;
+    }
+
     setCommands((prev) =>
       prev.map((cmd) => (cmd.id === commandId ? { ...cmd, status: 'REJECTED' } : cmd))
     );
 
+    setAnomalies((prev) =>
+      prev.map((anm) =>
+        anm.id === selectedAnomalyId
+          ? {
+              ...anm,
+              status: 'REJECTED',
+              commands: (anm.commands || []).map((cmd) =>
+                cmd.id === commandId ? { ...cmd, status: 'REJECTED' } : cmd
+              ),
+            }
+          : anm
+      )
+    );
+
     const currentEvtId = selectedAnomalyId;
     if (currentEvtId) {
-      await approveEvent(currentEvtId, false, 'Flight Director Gene Kranz', note || 'Manual override executed.');
+      try {
+        await approveEvent(currentEvtId, false, 'Flight Director Gene Kranz', note || 'Manual override executed.');
+      } catch (err) {
+        console.warn('Backend event rejection warning:', err);
+      }
     }
 
     const now = new Date().toTimeString().split(' ')[0];
@@ -366,9 +702,31 @@ export const MissionProvider = ({ children }) => {
   };
 
   const approveAllCommands = async () => {
+    if (!hasCommandAuthority) {
+      alert("Access Denied: Flight Director clearance is required to authorize spacecraft commands.");
+      return;
+    }
+
     setCommands((prev) => prev.map((cmd) => ({ ...cmd, status: 'APPROVED' })));
+
+    setAnomalies((prev) =>
+      prev.map((anm) =>
+        anm.id === selectedAnomalyId
+          ? {
+              ...anm,
+              status: 'RESOLVED',
+              commands: (anm.commands || []).map((c) => ({ ...c, status: 'APPROVED' })),
+            }
+          : anm
+      )
+    );
+
     if (selectedAnomalyId) {
-      await approveEvent(selectedAnomalyId, true, 'Flight Director Gene Kranz', 'All staged contingency commands authorized.');
+      try {
+        await approveEvent(selectedAnomalyId, true, 'Flight Director Gene Kranz', 'All staged contingency commands authorized.');
+      } catch (err) {
+        console.warn('Backend approve-all warning:', err);
+      }
     }
     const now = new Date().toTimeString().split(' ')[0];
     setAuditLog((prev) => [
@@ -376,7 +734,43 @@ export const MissionProvider = ({ children }) => {
         id: `evt_${Date.now()}`,
         time: now,
         type: 'OPERATOR_APPROVAL',
-        message: `EMERGENCY CONTINGENCY SEQUENCE AUTHORIZED: All staged commands approved and transmitted.`,
+        message: `EMERGENCY CONTINGENCY SEQUENCE AUTHORIZED: All staged commands approved and transmitted via DSN Madrid-63.`,
+      },
+      ...prev,
+    ]);
+
+    playAlertChime('success');
+
+    // Spacecraft Recovery: Immediately restore React state to nominal
+    setIsCrisis(false);
+    setTelemetry((prev) => ({
+      ...prev,
+      voltage: 24.1,
+      temperature: 15.2,
+      battery_pct: 98.4,
+      solar_input: 96.4,
+      current_draw: 4.2,
+      anomaly_score: 0.02,
+      is_anomaly: false,
+      mode: 'nominal',
+    }));
+    setSubsystems(INITIAL_SUBSYSTEMS);
+
+    // Send reset to backend via WebSocket and REST dual-channel
+    resetToNominal();
+    try {
+      await setSimulationMode('nominal', 0);
+    } catch (e) {
+      console.warn('Simulation mode sync warning:', e);
+    }
+
+    const recTime = new Date().toTimeString().split(' ')[0];
+    setAuditLog((prev) => [
+      {
+        id: `evt_${Date.now()}`,
+        time: recTime,
+        type: 'NOMINAL',
+        message: `SPACECRAFT RECOVERY CONFIRMED: Safe-state executed successfully. Telemetry returning to nominal envelope.`,
       },
       ...prev,
     ]);
@@ -396,8 +790,9 @@ export const MissionProvider = ({ children }) => {
     }
   };
 
-  const triggerCrisis = (scenarioName = 'Solar Array Strike & EPS Bus Failure') => {
-    switchSimulationMode('crisis', 0);
+  const triggerCrisis = (scenarioName = 'Solar Array Strike & EPS Bus Failure', mode = 'crisis_solar') => {
+    playAlertChime('critical');
+    switchSimulationMode(mode, 0);
   };
 
   const resetToNominal = () => {
@@ -447,6 +842,16 @@ export const MissionProvider = ({ children }) => {
         isAnalyzing,
         triggerGeminiAnalysis,
         syncWithBackend,
+        // Future Implementations State
+        availableChannels,
+        activeChannel,
+        switchActiveChannel,
+        operatorRole,
+        setOperatorRole,
+        hasCommandAuthority,
+        settingsConfig,
+        updateSettingsConfig,
+        playAlertChime,
       }}
     >
       {children}

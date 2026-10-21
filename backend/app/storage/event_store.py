@@ -1,7 +1,12 @@
+import json
+import logging
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger("astra.storage")
 
 
 class AnomalyEvent(BaseModel):
@@ -30,12 +35,75 @@ class AuditLogEntry(BaseModel):
     telemetry_summary: Optional[Dict[str, Any]] = None
 
 
+def _dump(item: Any) -> Dict[str, Any]:
+    if hasattr(item, "model_dump"):
+        return item.model_dump()
+    return item.dict()
+
+
+from app.storage.db import init_db, db_save_event, db_save_audit_entry, db_list_events, db_list_audit_entries
+
 class EventStore:
-    def __init__(self):
+    def __init__(self, storage_path: Optional[Path] = None):
+        self.storage_path = storage_path or (Path(__file__).parent / "event_store.json")
         self._events: Dict[str, AnomalyEvent] = {}
         self._audit_log: List[AuditLogEntry] = []
         self._counter: int = 1
-        self._seed_initial_data()
+        
+        init_db()
+        if not self._load_from_disk():
+            self._seed_initial_data()
+            self._save_to_disk()
+
+    def _save_to_disk(self):
+        try:
+            self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+            data = {
+                "counter": self._counter,
+                "events": {k: _dump(v) for k, v in self._events.items()},
+                "audit_log": [_dump(e) for e in self._audit_log],
+            }
+            with open(self.storage_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.warning(f"Failed to persist event store to {self.storage_path}: {e}")
+
+    def _load_from_disk(self) -> bool:
+        # Check SQLite first
+        try:
+            sqlite_events = db_list_events()
+            if sqlite_events:
+                self._events = {e["event_id"]: AnomalyEvent(**e) for e in sqlite_events}
+                sqlite_audit = db_list_audit_entries(200)
+                self._audit_log = [AuditLogEntry(**a) for a in sqlite_audit]
+                self._counter = max(len(self._events), 1)
+                logger.info(f"Loaded {len(self._events)} events from SQLite database")
+                return True
+        except Exception as err:
+            logger.warning(f"SQLite initial load notice: {err}")
+
+        if not self.storage_path.exists():
+            return False
+        try:
+            with open(self.storage_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            
+            raw_events = data.get("events", {})
+            self._events = {k: AnomalyEvent(**v) for k, v in raw_events.items()}
+            raw_audit = data.get("audit_log", [])
+            self._audit_log = [AuditLogEntry(**e) for e in raw_audit]
+            self._counter = data.get("counter", max(len(self._events), 1))
+            logger.info(f"Loaded {len(self._events)} events and {len(self._audit_log)} audit entries from {self.storage_path}")
+            
+            # Sync loaded events to SQLite
+            for ev in self._events.values():
+                db_save_event(_dump(ev))
+            for au in self._audit_log:
+                db_save_audit_entry(_dump(au))
+            return True
+        except Exception as e:
+            logger.warning(f"Failed to load event store from disk ({e}); seeding fresh data")
+            return False
 
     def _seed_initial_data(self):
         # Initial event for P-3 baseline
@@ -101,7 +169,7 @@ class EventStore:
             updated_at=now_iso
         )
         self._events[event_id] = event
-
+        db_save_event(_dump(event))
         self.add_audit_entry(
             type_="CRITICAL",
             subsystem=f"CHANNEL {channel}",
@@ -115,6 +183,26 @@ class EventStore:
     def list_events(self) -> List[AnomalyEvent]:
         return sorted(list(self._events.values()), key=lambda e: e.start_timestamp, reverse=True)
 
+    def update_event_span(
+        self,
+        event_id: str,
+        end_timestamp: int,
+        duration: int,
+        score: Optional[float] = None
+    ) -> Optional[AnomalyEvent]:
+        event = self._events.get(event_id)
+        if not event:
+            return None
+        if end_timestamp > event.end_timestamp:
+            event.end_timestamp = end_timestamp
+            event.duration = max(event.duration, duration)
+            if score is not None and score > event.anomaly_score:
+                event.anomaly_score = round(score, 4)
+            event.updated_at = datetime.now(timezone.utc).isoformat()
+            db_save_event(_dump(event))
+            self._save_to_disk()
+        return event
+
     def update_gemini_analysis(self, event_id: str, analysis: Dict[str, Any]) -> Optional[AnomalyEvent]:
         event = self._events.get(event_id)
         if not event:
@@ -122,6 +210,7 @@ class EventStore:
         event.gemini_analysis = analysis
         event.status = "UNDER_REVIEW"
         event.updated_at = datetime.now(timezone.utc).isoformat()
+        db_save_event(_dump(event))
 
         self.add_audit_entry(
             type_="AI_ACTION",
@@ -144,11 +233,26 @@ class EventStore:
             "timestamp": datetime.now(timezone.utc).isoformat()
         }
         event.updated_at = datetime.now(timezone.utc).isoformat()
+        db_save_event(_dump(event))
 
         self.add_audit_entry(
             type_="OPERATOR_APPROVAL",
             subsystem=f"FLIGHT CONTROL ({officer})",
             event=f"Action on {event_id} marked as {status} by {officer}. Note: {note or 'Standard procedure executed.'}"
+        )
+        return event
+
+    def resolve_event(self, event_id: str, reason: str = "Nominal telemetry restored.") -> Optional[AnomalyEvent]:
+        event = self._events.get(event_id)
+        if not event:
+            return None
+        event.status = "RESOLVED"
+        event.updated_at = datetime.now(timezone.utc).isoformat()
+        db_save_event(_dump(event))
+        self.add_audit_entry(
+            type_="NOMINAL",
+            subsystem=f"RECOVERY ({event.channel})",
+            event=f"Anomaly event {event_id} marked as RESOLVED. {reason}"
         )
         return event
 
@@ -166,6 +270,8 @@ class EventStore:
         self._audit_log.insert(0, entry)
         if len(self._audit_log) > 200:
             self._audit_log.pop()
+        db_save_audit_entry(_dump(entry))
+        self._save_to_disk()
 
     def list_audit_log(self, limit: int = 50) -> List[AuditLogEntry]:
         return self._audit_log[:limit]

@@ -69,6 +69,18 @@ async def telemetry_stream_endpoint(websocket: WebSocket):
                         "mode": mode,
                         "start_index": start_index
                     }))
+                elif action == "set_channel":
+                    ch = data.get("channel", "P-3").strip().upper()
+                    telemetry_service.set_channel(ch)
+                    event_store.add_audit_entry(
+                        type_="COMMAND_UPLINK",
+                        subsystem=f"INGESTION ({ch})",
+                        event=f"STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel {ch}."
+                    )
+                    await websocket.send_text(json.dumps({
+                        "type": "CHANNEL_CHANGED",
+                        "channel": ch
+                    }))
                 elif action == "ping":
                     await websocket.send_text(json.dumps({"type": "PONG"}))
             except asyncio.TimeoutError:

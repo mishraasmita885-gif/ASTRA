@@ -25,9 +25,12 @@ logging.basicConfig(
 logger = logging.getLogger("astra.main")
 
 
+from app.storage.db import init_db
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("ASTRA Mission Control Backend Initializing...")
+    init_db()
     logger.info(f"Detector Channel: {telemetry_service.detector.channel}")
     logger.info(f"Threshold: {telemetry_service.detector.threshold}")
     logger.info(f"NASA P-3 Points loaded: {telemetry_service.p3_total_points}")

@@ -1,0 +1,342 @@
+{
+  "counter": 6,
+  "events": {
+    "ASTRA-P3-0001": {
+      "event_id": "ASTRA-P3-0001",
+      "channel": "P-3",
+      "detector": "change_detection",
+      "start_timestamp": 5400,
+      "end_timestamp": 6656,
+      "duration": 1257,
+      "anomaly_score": 0.91,
+      "status": "UNDER_REVIEW",
+      "operator_approval_required": true,
+      "operator_decision": {
+        "approved": true,
+        "officer": "Flight Director Gene Kranz",
+        "note": "All staged contingency commands authorized.",
+        "timestamp": "2026-10-20T21:26:58.693909+00:00"
+      },
+      "gemini_analysis": {
+        "diagnosis": "Telemetry pattern on channel P-3 is consistent with an abnormal subsystem state, supported by a peak change detection score of 0.91 exceeding the threshold of 0.3888.",
+        "severity": "MEDIUM",
+        "confidence": 0.85,
+        "evidence": [
+          "Detector change_detection triggered on channel P-3 with peak score 0.91",
+          "Event duration measured at 1257 seconds",
+          "Bus voltage is 24.17 V, remaining near the lower bound of the nominal 24.0 - 28.0 V range",
+          "Solar input at 96.3% and battery level at 97.17% remain within nominal operational parameters"
+        ],
+        "recommendation": "Acknowledge anomaly on channel P-3, review subsystem logs, and await operator approval before executing any reconfiguration.",
+        "operator_approval_required": true,
+        "survival_probability": 98,
+        "time_to_exhaustion": null,
+        "model_used": "gemini-3.5-flash-lite"
+      },
+      "created_at": "2026-10-20T21:04:04.616276+00:00",
+      "updated_at": "2026-10-21T06:18:33.236773+00:00"
+    },
+    "ASTRA-EPS-SOLAR-0005": {
+      "event_id": "ASTRA-EPS-SOLAR-0005",
+      "channel": "EPS-SOLAR",
+      "detector": "photovoltaic_collapse",
+      "start_timestamp": 1015,
+      "end_timestamp": 1315,
+      "duration": 300,
+      "anomaly_score": 0.94,
+      "status": "RESOLVED",
+      "operator_approval_required": true,
+      "operator_decision": null,
+      "gemini_analysis": null,
+      "created_at": "2026-10-20T21:26:44.735456+00:00",
+      "updated_at": "2026-10-20T21:26:58.697702+00:00"
+    },
+    "ASTRA-EPS-BATTERY-0004": {
+      "event_id": "ASTRA-EPS-BATTERY-0004",
+      "channel": "EPS-BATTERY",
+      "detector": "thermal_runaway",
+      "start_timestamp": 883,
+      "end_timestamp": 1183,
+      "duration": 300,
+      "anomaly_score": 0.98,
+      "status": "RESOLVED",
+      "operator_approval_required": true,
+      "operator_decision": null,
+      "gemini_analysis": null,
+      "created_at": "2026-10-20T21:23:51.015282+00:00",
+      "updated_at": "2026-10-20T21:26:15.847977+00:00"
+    },
+    "ASTRA-EPS-SOLAR-0003": {
+      "event_id": "ASTRA-EPS-SOLAR-0003",
+      "channel": "EPS-SOLAR",
+      "detector": "photovoltaic_collapse",
+      "start_timestamp": 845,
+      "end_timestamp": 1145,
+      "duration": 300,
+      "anomaly_score": 0.94,
+      "status": "RESOLVED",
+      "operator_approval_required": true,
+      "operator_decision": null,
+      "gemini_analysis": null,
+      "created_at": "2026-10-20T21:23:01.036172+00:00",
+      "updated_at": "2026-10-20T21:26:15.850307+00:00"
+    },
+    "ASTRA-EPS-SOLAR-0002": {
+      "event_id": "ASTRA-EPS-SOLAR-0002",
+      "channel": "EPS-SOLAR",
+      "detector": "photovoltaic_collapse",
+      "start_timestamp": 741,
+      "end_timestamp": 1041,
+      "duration": 300,
+      "anomaly_score": 0.94,
+      "status": "RESOLVED",
+      "operator_approval_required": true,
+      "operator_decision": null,
+      "gemini_analysis": null,
+      "created_at": "2026-10-20T21:20:44.099375+00:00",
+      "updated_at": "2026-10-20T21:20:50.599268+00:00"
+    },
+    "ASTRA-EPS-SOLAR-0006": {
+      "event_id": "ASTRA-EPS-SOLAR-0006",
+      "channel": "EPS-SOLAR",
+      "detector": "photovoltaic_collapse",
+      "start_timestamp": 574,
+      "end_timestamp": 874,
+      "duration": 300,
+      "anomaly_score": 0.94,
+      "status": "RESOLVED",
+      "operator_approval_required": true,
+      "operator_decision": null,
+      "gemini_analysis": null,
+      "created_at": "2026-10-21T05:37:10.098278+00:00",
+      "updated_at": "2026-10-21T05:37:33.735013+00:00"
+    }
+  },
+  "audit_log": [
+    {
+      "id": "evt_1792563513244",
+      "time": "11:48:33",
+      "timestamp_epoch": 1792563513.2445035,
+      "type": "AI_ACTION",
+      "subsystem": "REASONER (P-3)",
+      "event": "Gemini diagnosis generated for ASTRA-P3-0001. Severity: MEDIUM. Operator sign-off required.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792561069473",
+      "time": "11:07:49",
+      "timestamp_epoch": 1792561069.4731336,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "INGESTION (A-3)",
+      "event": "STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel A-3.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792561068869",
+      "time": "11:07:48",
+      "timestamp_epoch": 1792561068.8690827,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "INGESTION (A-3)",
+      "event": "STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel A-3.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792561053740",
+      "time": "11:07:33",
+      "timestamp_epoch": 1792561053.7401805,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (EPS-SOLAR)",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0006 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792561053726",
+      "time": "11:07:33",
+      "timestamp_epoch": 1792561053.7266634,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (P-3)",
+      "event": "Anomaly event ASTRA-P3-0001 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792561030104",
+      "time": "11:07:10",
+      "timestamp_epoch": 1792561030.1045423,
+      "type": "CRITICAL",
+      "subsystem": "CHANNEL EPS-SOLAR",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0006 flagged: steps 574 -> 874 (duration: 300).",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792559542833",
+      "time": "10:42:22",
+      "timestamp_epoch": 1792559542.8337142,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "INGESTION (A-1)",
+      "event": "STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel A-1.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792559542293",
+      "time": "10:42:22",
+      "timestamp_epoch": 1792559542.2937288,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "INGESTION (A-1)",
+      "event": "STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel A-1.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792559371534",
+      "time": "10:39:31",
+      "timestamp_epoch": 1792559371.534173,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "INGESTION (T-2)",
+      "event": "STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel T-2.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792532388286",
+      "time": "03:09:48",
+      "timestamp_epoch": 1792532388.2863781,
+      "type": "AI_ACTION",
+      "subsystem": "REASONER (P-3)",
+      "event": "Gemini diagnosis generated for ASTRA-P3-0001. Severity: HIGH. Operator sign-off required.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792532258546",
+      "time": "03:07:38",
+      "timestamp_epoch": 1792532258.546966,
+      "type": "AI_ACTION",
+      "subsystem": "REASONER (P-3)",
+      "event": "Gemini diagnosis generated for ASTRA-P3-0001. Severity: CRITICAL. Operator sign-off required.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531618703",
+      "time": "02:56:58",
+      "timestamp_epoch": 1792531618.7033496,
+      "type": "NOMINAL",
+      "subsystem": "FLIGHT RECOVERY",
+      "event": "Contingency commands authorized for ASTRA-P3-0001. Spacecraft telemetry restored to nominal baseline.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531618700",
+      "time": "02:56:58",
+      "timestamp_epoch": 1792531618.7007236,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (P-3)",
+      "event": "Anomaly event ASTRA-P3-0001 marked as RESOLVED. Contingency commands authorized by Flight Director Gene Kranz. Telemetry restored.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531618697",
+      "time": "02:56:58",
+      "timestamp_epoch": 1792531618.6977546,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (EPS-SOLAR)",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0005 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531618696",
+      "time": "02:56:58",
+      "timestamp_epoch": 1792531618.6960673,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (P-3)",
+      "event": "Anomaly event ASTRA-P3-0001 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531618693",
+      "time": "02:56:58",
+      "timestamp_epoch": 1792531618.6939888,
+      "type": "OPERATOR_APPROVAL",
+      "subsystem": "FLIGHT CONTROL (Flight Director Gene Kranz)",
+      "event": "Action on ASTRA-P3-0001 marked as APPROVED by Flight Director Gene Kranz. Note: All staged contingency commands authorized.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531604735",
+      "time": "02:56:44",
+      "timestamp_epoch": 1792531604.7355952,
+      "type": "CRITICAL",
+      "subsystem": "CHANNEL EPS-SOLAR",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0005 flagged: steps 1015 -> 1315 (duration: 300).",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531575850",
+      "time": "02:56:15",
+      "timestamp_epoch": 1792531575.8503716,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (EPS-SOLAR)",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0003 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531575848",
+      "time": "02:56:15",
+      "timestamp_epoch": 1792531575.848056,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (EPS-BATTERY)",
+      "event": "Anomaly event ASTRA-EPS-BATTERY-0004 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531431015",
+      "time": "02:53:51",
+      "timestamp_epoch": 1792531431.0153792,
+      "type": "CRITICAL",
+      "subsystem": "CHANNEL EPS-BATTERY",
+      "event": "Anomaly event ASTRA-EPS-BATTERY-0004 flagged: steps 883 -> 1183 (duration: 300).",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531381036",
+      "time": "02:53:01",
+      "timestamp_epoch": 1792531381.0362782,
+      "type": "CRITICAL",
+      "subsystem": "CHANNEL EPS-SOLAR",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0003 flagged: steps 845 -> 1145 (duration: 300).",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531250599",
+      "time": "02:50:50",
+      "timestamp_epoch": 1792531250.5993245,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (EPS-SOLAR)",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0002 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531250597",
+      "time": "02:50:50",
+      "timestamp_epoch": 1792531250.5971956,
+      "type": "NOMINAL",
+      "subsystem": "RECOVERY (P-3)",
+      "event": "Anomaly event ASTRA-P3-0001 marked as RESOLVED. Nominal baseline restored by operator.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792531244099",
+      "time": "02:50:44",
+      "timestamp_epoch": 1792531244.099467,
+      "type": "CRITICAL",
+      "subsystem": "CHANNEL EPS-SOLAR",
+      "event": "Anomaly event ASTRA-EPS-SOLAR-0002 flagged: steps 741 -> 1041 (duration: 300).",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1792530244616",
+      "time": "02:34:04",
+      "timestamp_epoch": 1792530244.6163487,
+      "type": "WARNING",
+      "subsystem": "INSTRUMENTATION (P-3)",
+      "event": "P-3 Change detector initialized. Baseline threshold loaded: 0.3888857.",
+      "telemetry_summary": null
+    }
+  ]
+}

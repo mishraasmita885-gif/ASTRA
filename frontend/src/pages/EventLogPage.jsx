@@ -13,17 +13,60 @@ import {
 } from 'lucide-react';
 
 export const EventLogPage = () => {
-  const { auditLog, isCrisis } = useMission();
+  const { auditLog, isCrisis, telemetry, anomalies, commands } = useMission();
   const [filterType, setFilterType] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const formatMET = (stepOffsetSeconds = 0) => {
+    const totalSec = Math.max(0, (telemetry?.step || 0) + stepOffsetSeconds);
+    const hrs = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+    const mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+    const secs = String(totalSec % 60).padStart(2, '0');
+    return `T+${hrs}:${mins}:${secs}`;
+  };
+
+  const hasApprovedCommands = auditLog.some(
+    (e) => e.type === 'OPERATOR_APPROVAL' || (e.message && e.message.includes('RECOVERY'))
+  );
+  const lastAnomaly = anomalies?.[0];
 
   const timelinePhases = [
     { name: 'Launch & Insertion', time: 'T-00:45:00', status: 'COMPLETED' },
     { name: 'Deploy Solar Arrays', time: 'T+00:12:30', status: 'COMPLETED' },
-    { name: 'Nominal Orbit Ops', time: 'T+01:30:00', status: isCrisis ? 'COMPLETED' : 'ACTIVE' },
-    { name: 'Anomaly Injected', time: 'T+02:15:20', status: isCrisis ? 'ACTIVE' : 'STANDBY' },
-    { name: 'AI Contingency Recovery', time: 'T+02:18:00', status: isCrisis ? 'STAGED' : 'STANDBY' },
+    {
+      name: 'Nominal Orbit Ops',
+      time: isCrisis ? 'Interrupted' : formatMET(0),
+      status: isCrisis ? 'COMPLETED' : 'ACTIVE',
+    },
+    {
+      name: 'Anomaly Injected',
+      time: isCrisis
+        ? lastAnomaly?.detectedAt || `Step ${telemetry?.step || 5400}`
+        : hasApprovedCommands
+        ? 'Resolved'
+        : 'Standby',
+      status: isCrisis ? 'ACTIVE' : hasApprovedCommands ? 'COMPLETED' : 'STANDBY',
+    },
+    {
+      name: 'AI Contingency Recovery',
+      time: isCrisis
+        ? commands?.some((c) => c.status === 'APPROVED')
+          ? 'Approved'
+          : 'Awaiting Uplink'
+        : hasApprovedCommands
+        ? 'Nominal Restored'
+        : 'Standby',
+      status: isCrisis
+        ? commands?.some((c) => c.status === 'APPROVED')
+          ? 'COMPLETED'
+          : 'ACTIVE'
+        : hasApprovedCommands
+        ? 'COMPLETED'
+        : 'STANDBY',
+    },
   ];
+
+  const orbitRev = Math.floor(4820 + (telemetry?.step || 0) / 100);
 
   const filteredLog = auditLog.filter((evt) => {
     if (filterType !== 'ALL' && evt.type !== filterType) return false;
@@ -73,7 +116,9 @@ export const EventLogPage = () => {
             <Milestone className="w-4 h-4 text-[#233446]" />
             <h2 className="font-display font-bold text-base text-[#161514]">Mission Timeline Phases</h2>
           </div>
-          <span className="text-xs font-mono text-[#736f68]">Orbit Revision 4,821</span>
+          <span className="text-xs font-mono text-[#736f68]">
+            Orbit Revision {orbitRev.toLocaleString()} • MET: {formatMET(0)}
+          </span>
         </div>
 
         {/* Timeline Horizontal Line & Steps */}

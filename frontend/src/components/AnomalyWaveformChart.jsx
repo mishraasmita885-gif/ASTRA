@@ -35,6 +35,18 @@ export const AnomalyWaveformChart = ({
 
   // Available anomaly channels
   const channelConfigs = {
+    p3: {
+      name: 'NASA P-3 Primary Flight Channel',
+      unit: 'val',
+      actualKey: 'p3',
+      actualColor: '#8b5cf6',
+      nominalVal: -0.22,
+      thresholdVal: 0.3888857,
+      thresholdLabel: 'P-3 Change Threshold (0.3889)',
+      min: -1.0,
+      max: 1.0,
+      ticks: [1.0, 0.5, 0.0, -0.5, -1.0],
+    },
     voltage: {
       name: 'Regulated Main Bus',
       unit: 'VDC',
@@ -72,13 +84,13 @@ export const AnomalyWaveformChart = ({
       ticks: [100, 75, 50, 25, 0],
     },
     score: {
-      name: 'LSTM Autoencoder Reconstruction Loss',
-      unit: 'MSE',
+      name: 'P-3 Change Detection Anomaly Score',
+      unit: 'Score',
       actualKey: 'anomaly_score',
       actualColor: '#ec4899',
       nominalVal: 0.05,
-      thresholdVal: 0.70,
-      thresholdLabel: '3-Sigma Anomaly Trigger (0.70 MSE)',
+      thresholdVal: 0.3888857,
+      thresholdLabel: 'Learned Validation Threshold (0.3889)',
       min: 0,
       max: 1.0,
       ticks: [1.0, 0.8, 0.6, 0.4, 0.2, 0],
@@ -99,7 +111,10 @@ export const AnomalyWaveformChart = ({
       let actual;
       let predicted;
 
-      if (selectedChannel === 'voltage') {
+      if (selectedChannel === 'p3') {
+        predicted = -0.22;
+        actual = histItem.p3 ?? (isCrisis && i >= 12 ? -0.15 : -0.22);
+      } else if (selectedChannel === 'voltage') {
         predicted = +(24.1 + Math.sin(i * 0.2) * 0.15).toFixed(2);
         actual = isCrisis && i >= 12
           ? +(11.0 + Math.random() * 0.3).toFixed(2)
@@ -217,11 +232,11 @@ export const AnomalyWaveformChart = ({
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
             <h3 className="font-sans font-bold text-base text-[#161514]">
-              LSTM Reconstruction & Error Residual Waveform
+              NASA P-3 & Subsystem Anomaly Waveform
             </h3>
           </div>
           <span className="text-xs font-mono text-[#736f68]">
-            Observed telemetry vs nominal baseline • 3-Sigma threshold envelope
+            Observed telemetry vs nominal baseline • 0.3889 validation threshold envelope
           </span>
         </div>
 
@@ -237,7 +252,7 @@ export const AnomalyWaveformChart = ({
                   : 'bg-slate-100 text-[#64748b] hover:bg-slate-200'
               }`}
             >
-              {key === 'voltage' ? 'Bus (V)' : key === 'temp' ? 'Temp (°C)' : key === 'solar' ? 'Solar (%)' : 'Error (MSE)'}
+              {key === 'p3' ? 'NASA P-3' : key === 'voltage' ? 'Bus (V)' : key === 'temp' ? 'Temp (°C)' : key === 'solar' ? 'Solar (%)' : 'Score'}
             </button>
           ))}
 

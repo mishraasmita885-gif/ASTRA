@@ -32,6 +32,10 @@ export const SubsystemsPage = () => {
     }
   };
 
+  const critCount = subsystems.filter((s) => s.status === 'CRITICAL').length;
+  const warnCount = subsystems.filter((s) => s.status === 'WARNING').length;
+  const healthyCount = subsystems.filter((s) => s.status === 'HEALTHY' || s.status === 'NOMINAL').length;
+
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-12">
       {/* Header */}
@@ -50,8 +54,12 @@ export const SubsystemsPage = () => {
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-2 font-mono text-xs font-bold text-[#24140b] bg-[#ebdccb] border border-[#4a2e1b] shadow-[1.5px_1.5px_0px_0px_#4a2e1b] px-3.5 py-1.5 rounded-full">
-            <span className={`w-2 h-2 rounded-full ${isCrisis ? 'bg-red-500 animate-pulse' : 'bg-emerald-500'}`} />
-            <span>Status: {isCrisis ? '1 CRITICAL • 1 WARNING • 2 NOMINAL' : '4/4 ALL SUBSYSTEMS NOMINAL'}</span>
+            <span className={`w-2 h-2 rounded-full ${critCount > 0 ? 'bg-red-500 animate-pulse' : warnCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+            <span>
+              Status: {critCount > 0 || warnCount > 0
+                ? `${critCount > 0 ? `${critCount} CRITICAL` : ''}${critCount > 0 && warnCount > 0 ? ' • ' : ''}${warnCount > 0 ? `${warnCount} WARNING` : ''}${healthyCount > 0 ? ` • ${healthyCount} NOMINAL` : ''}`
+                : '4/4 ALL SUBSYSTEMS NOMINAL'}
+            </span>
           </div>
         </div>
       </div>
@@ -135,7 +143,7 @@ export const SubsystemsPage = () => {
                   </div>
                   <TelemetrySparkline
                     data={telemetryHistory}
-                    dataKey={sub.id === 'eps' ? 'voltage' : sub.id === 'tcs' ? 'temp' : sub.id === 'comms' ? 'solar' : 'battery'}
+                    dataKey={sub.id === 'eps' ? 'voltage' : sub.id === 'tcs' ? 'temp' : sub.id === 'ttc' ? 'voltage' : 'p3'}
                     strokeColor={isCrit ? '#ef4444' : isWarn ? '#f59e0b' : '#3b82f6'}
                     fillGradientId={`grad-sub-${sub.id}`}
                     height={44}

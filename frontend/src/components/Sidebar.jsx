@@ -35,17 +35,23 @@ export const Sidebar = () => {
     { id: 'ai_assistant', label: 'AI Copilot', icon: Sparkles },
     { id: 'events', label: 'Event Log', icon: ScrollText },
     { id: 'simulation', label: 'Simulation', icon: FlaskConical },
-    { id: 'overview', label: 'Reports', icon: FileText },
+    { id: 'reports', label: 'Reports', icon: FileText },
   ];
 
   const systemNav = [
-    { id: 'settings', label: 'Settings', icon: Settings, action: () => setActiveTab('simulation') },
-    { id: 'docs', label: 'Documentation', icon: FileCode2, isExternal: true },
+    { id: 'settings', label: 'Settings', icon: Settings, action: () => setActiveTab('settings') },
+    {
+      id: 'docs',
+      label: 'Documentation',
+      icon: FileCode2,
+      isExternal: true,
+      action: () => window.open('https://github.com/mishraasmita885-gif/ASTRA#readme', '_blank', 'noopener,noreferrer')
+    },
   ];
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen bg-[#ebdccb] text-[#24140b] flex flex-col justify-between shadow-xl z-40 select-none border-r border-[#24140b] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+      className={`fixed left-0 top-0 h-screen bg-[#ebdccb] text-[#24140b] flex flex-col justify-between shadow-xl z-40 select-none border-r border-[#24140b] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] print:hidden ${
         isSidebarCollapsed ? 'w-20' : 'w-64'
       }`}
     >

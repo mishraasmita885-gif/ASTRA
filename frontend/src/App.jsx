@@ -9,6 +9,8 @@ import { AnomalyCenterPage } from './pages/AnomalyCenterPage';
 import { AIAssistantPage } from './pages/AIAssistantPage';
 import { EventLogPage } from './pages/EventLogPage';
 import { SimulationPage } from './pages/SimulationPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { MissionReportsPage } from './pages/MissionReportsPage';
 
 const AppContent = () => {
   const { activeTab } = useMission();
@@ -31,6 +33,10 @@ const AppContent = () => {
         return <EventLogPage />;
       case 'simulation':
         return <SimulationPage />;
+      case 'reports':
+        return <MissionReportsPage />;
+      case 'settings':
+        return <SettingsPage />;
       default:
         return <MissionOverviewPage />;
     }

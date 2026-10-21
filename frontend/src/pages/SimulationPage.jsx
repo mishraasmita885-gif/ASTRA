@@ -16,6 +16,7 @@ import {
   Play,
   Pause,
   Layers,
+  Search,
 } from 'lucide-react';
 
 export const SimulationPage = () => {
@@ -30,12 +31,17 @@ export const SimulationPage = () => {
     commands,
     approveCommand,
     rejectCommand,
+    availableChannels,
+    activeChannel,
+    switchActiveChannel,
   } = useMission();
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState('nasa_p3');
   const [p3Data, setP3Data] = useState(null);
   const [p3StartIndex, setP3StartIndex] = useState(5200);
+  const [channelFilter, setChannelFilter] = useState('');
+  const [channelPrefix, setChannelPrefix] = useState('ALL');
 
   useEffect(() => {
     async function loadP3Window() {
@@ -75,8 +81,10 @@ export const SimulationPage = () => {
     setConfirmModalOpen(false);
     if (selectedScenario === 'nasa_p3') {
       playNasaP3Stream(p3StartIndex);
+    } else if (selectedScenario === 'battery_runaway') {
+      triggerCrisis('Li-Ion Battery Cell #3 Thermal Runaway', 'crisis_battery');
     } else {
-      triggerCrisis(scenarios.find((s) => s.id === selectedScenario)?.name);
+      triggerCrisis('Solar Array Strike & EPS Bus Failure', 'crisis_solar');
     }
   };
 
@@ -292,6 +300,176 @@ export const SimulationPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Feature 1: NASA Multi-Channel Telemetry Stream Ingestion Rack */}
+      {(() => {
+        const allChannels = availableChannels && availableChannels.length > 0
+          ? availableChannels
+          : ['P-3', 'A-1', 'A-2', 'B-1', 'C-1', 'C-2', 'D-1', 'E-1', 'T-1', 'S-1', 'M-1', 'P-1', 'P-2'];
+
+        const sortedChannels = [
+          'P-3',
+          ...allChannels.filter((c) => c !== 'P-3').sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }))
+        ];
+
+        const prefixes = ['ALL', 'P-3', ...Array.from(new Set(allChannels.map((c) => c.split('-')[0]))).filter((p) => p !== 'P').sort()];
+
+        const filteredChannels = sortedChannels.filter((ch) => {
+          const matchesQuery = ch.toLowerCase().includes(channelFilter.toLowerCase().trim());
+          if (!matchesQuery) return false;
+          if (channelPrefix === 'ALL') return true;
+          if (channelPrefix === 'P-3') return ch === 'P-3';
+          return ch.startsWith(`${channelPrefix}-`);
+        });
+
+        return (
+          <div className="rounded-3xl p-6 bg-[#f8f5ee] border-2 border-[#4a2e1b] shadow-[4px_4px_0px_0px_#4a2e1b] flex flex-col gap-4 font-mono">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[#4a2e1b]/20 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center font-bold shadow-[2px_2px_0px_0px_#4a2e1b]">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-display font-bold text-sm text-[#24140b] uppercase">
+                      NASA {availableChannels.length}-Channel Telemetry Ingestion Rack
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-900 font-bold border border-emerald-300">
+                      {availableChannels.length} CHANNELS ONLINE
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#73533e]">
+                    Select any NASA SMAP/MSL channel stem from the test repository to stream telemetry into the change detector.
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#24140b] font-bold">Active Stream:</span>
+                <span className="px-3 py-1 rounded-xl bg-[#452a19] text-[#fbf7f0] font-bold text-xs border border-[#24140b] shadow-[2px_2px_0px_0px_#24140b]">
+                  CHANNEL {activeChannel}
+                </span>
+              </div>
+            </div>
+
+            {/* Filter controls & family switcher */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-1">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] text-[#73533e] font-bold uppercase tracking-wider pr-1">
+                  Prefix:
+                </span>
+                {prefixes.map((pref) => {
+                  const isPrefActive = channelPrefix === pref;
+                  return (
+                    <button
+                      key={pref}
+                      onClick={() => setChannelPrefix(pref)}
+                      style={
+                        isPrefActive
+                          ? { backgroundColor: '#452a19', color: '#fbf7f0', borderColor: '#24140b' }
+                          : { backgroundColor: '#fbf7f0', color: '#24140b', borderColor: '#4a2e1b' }
+                      }
+                      className={`channel-item channel-pill px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer border ${
+                        isPrefActive ? 'channel-item-active shadow-xs' : 'channel-item-inactive hover:bg-[#dfcdb7]'
+                      }`}
+                    >
+                      <span style={{ color: isPrefActive ? '#fbf7f0' : '#24140b' }}>
+                        {pref === 'P-3' ? 'P-3 (BENCHMARK)' : pref}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="relative w-full sm:w-56">
+                <Search className="absolute left-2.5 top-2 w-3.5 h-3.5 text-[#73533e]" />
+                <input
+                  type="text"
+                  placeholder="Filter channel (e.g. P-3, T-1)..."
+                  value={channelFilter}
+                  onChange={(e) => setChannelFilter(e.target.value)}
+                  className="w-full pl-8 pr-2.5 py-1 text-xs font-mono rounded-xl border border-[#4a2e1b] bg-white text-[#24140b] placeholder:text-[#8c827a] focus:outline-none focus:ring-1 focus:ring-[#452a19]"
+                />
+              </div>
+            </div>
+
+            {/* Channel Selection Grid */}
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between text-[10px] text-[#73533e] font-bold uppercase tracking-wider">
+                <span>Showing {filteredChannels.length} of {sortedChannels.length} Channels:</span>
+                {(channelFilter || channelPrefix !== 'ALL') && (
+                  <button
+                    onClick={() => { setChannelFilter(''); setChannelPrefix('ALL'); }}
+                    className="underline hover:text-[#24140b] cursor-pointer"
+                  >
+                    Reset filters
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 max-h-72 overflow-y-auto p-1 custom-scrollbar">
+                {filteredChannels.length === 0 ? (
+                  <div className="w-full py-6 text-center text-xs text-[#73533e]">
+                    No channels match the filter "{channelFilter}".
+                  </div>
+                ) : (
+                  filteredChannels.map((ch) => {
+                    const isActive = ch === activeChannel;
+                    return (
+                      <button
+                        key={ch}
+                        onClick={() => switchActiveChannel(ch)}
+                        style={
+                          isActive
+                            ? { backgroundColor: '#452a19', color: '#fbf7f0', borderColor: '#24140b' }
+                            : { backgroundColor: '#fbf7f0', color: '#24140b', borderColor: '#4a2e1b' }
+                        }
+                        className={`channel-item channel-pill px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 active:translate-x-0.5 active:translate-y-0.5 border-2 shadow-[2px_2px_0px_0px_#24140b] ${
+                          isActive
+                            ? 'channel-item-active'
+                            : 'channel-item-inactive hover:bg-[#dfcdb7]'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full border border-[#24140b] ${
+                            isActive ? 'bg-emerald-400 animate-pulse' : 'bg-[#73533e]'
+                          }`}
+                        />
+                        <span
+                          style={{ color: isActive ? '#fbf7f0' : '#24140b' }}
+                          className="font-mono font-bold"
+                        >
+                          Channel {ch}
+                        </span>
+                        {ch === 'P-3' && (
+                          <span
+                            style={
+                              isActive
+                                ? { backgroundColor: '#fea619', color: '#1a0f07' }
+                                : { backgroundColor: '#ebdccb', color: '#73533e' }
+                            }
+                            className="text-[9px] px-1 py-0.2 rounded font-bold border border-[#24140b]/30"
+                          >
+                            BENCHMARK
+                          </span>
+                        )}
+                        {isActive && (
+                          <span
+                            style={{ color: '#fcd34d' }}
+                            className="text-[9px] font-bold tracking-wider"
+                          >
+                            ACTIVE
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Live P-3 Dataset Waveform Map */}
       {p3Data && p3Data.samples && (

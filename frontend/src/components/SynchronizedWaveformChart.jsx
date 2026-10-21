@@ -31,6 +31,7 @@ export const SynchronizedWaveformChart = ({
     voltage: true,
     battery: true,
     solar: true,
+    p3: true,
   });
 
   // Controls state
@@ -71,7 +72,7 @@ export const SynchronizedWaveformChart = ({
   const width = 1000;
   const height = 340;
   const paddingLeft = 55;   // Left Temperature axis
-  const paddingRight = 175;  // 3 Right axes: Voltage (45px) + Battery (45px) + PV (45px) + labels
+  const paddingRight = 235; // 4 Right axes: Voltage (45px) + Battery (45px) + PV (45px) + P-3 (45px) + labels
   const paddingTop = 25;
   const paddingBottom = 45;
 
@@ -83,11 +84,13 @@ export const SynchronizedWaveformChart = ({
   // Voltage: 0 to 30 V
   // Battery: 0 to 100 %
   // PV: 0 to 100 %
+  // P-3: -1.0 to 1.0 (NASA channel normalized)
   const scales = {
     temp: { min: 0, max: 100, color: '#ef4444', unit: '°C' },
     voltage: { min: 0, max: 30, color: '#3b82f6', unit: 'V' },
     battery: { min: 0, max: 100, color: '#10b981', unit: '%' },
     solar: { min: 0, max: 100, color: '#f97316', unit: '%' },
+    p3: { min: -1.0, max: 1.0, color: '#8b5cf6', unit: 'val' },
   };
 
   // Convert data value to Y pixel
@@ -125,7 +128,7 @@ export const SynchronizedWaveformChart = ({
     if (total < 2) return {};
 
     const res = {};
-    ['temp', 'voltage', 'battery', 'solar'].forEach((key) => {
+    ['temp', 'voltage', 'battery', 'solar', 'p3'].forEach((key) => {
       const pts = activeData.map((d, i) => ({
         x: getX(i, total),
         y: getY(d[key], key),
@@ -176,6 +179,7 @@ export const SynchronizedWaveformChart = ({
         voltage: { y: getY(datum.voltage, 'voltage'), val: datum.voltage?.toFixed(1) },
         battery: { y: getY(datum.battery, 'battery'), val: datum.battery?.toFixed(1) },
         solar: { y: getY(datum.solar, 'solar'), val: datum.solar?.toFixed(1) },
+        p3: { y: getY(datum.p3, 'p3'), val: datum.p3 != null ? Number(datum.p3).toFixed(4) : 'N/A' },
       },
     });
   };
@@ -187,11 +191,11 @@ export const SynchronizedWaveformChart = ({
   // CSV Export handler
   const handleExportCSV = () => {
     if (!activeData || activeData.length === 0) return;
-    const headers = 'Time,Temperature(°C),Regulated(V),Battery(%),Photovoltaic(%)\n';
+    const headers = 'Time,Temperature(°C),Regulated(V),Battery(%),Photovoltaic(%),Channel_P3\n';
     const rows = activeData
       .map(
         (d) =>
-          `${d.time || ''},${d.temp || ''},${d.voltage || ''},${d.battery || ''},${d.solar || ''}`
+          `${d.time || ''},${d.temp || ''},${d.voltage || ''},${d.battery || ''},${d.solar || ''},${d.p3 ?? ''}`
       )
       .join('\n');
     const blob = new Blob([headers + rows], { type: 'text/csv' });
@@ -347,6 +351,25 @@ export const SynchronizedWaveformChart = ({
             </div>
             <span>Photovoltaic (%)</span>
           </button>
+
+          {/* Channel P-3 */}
+          <button
+            onClick={() => toggleChannel('p3')}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-sans font-semibold transition-all cursor-pointer ${
+              channels.p3
+                ? 'bg-purple-50/90 border-purple-200 text-[#8b5cf6] shadow-2xs'
+                : 'bg-white border-slate-200 text-slate-400 opacity-60'
+            }`}
+          >
+            <div
+              className={`w-4 h-4 rounded flex items-center justify-center transition-colors ${
+                channels.p3 ? 'bg-[#8b5cf6] text-white' : 'border border-slate-300 bg-white'
+              }`}
+            >
+              {channels.p3 && <Check className="w-3 h-3 stroke-[3]" />}
+            </div>
+            <span>Channel P-3</span>
+          </button>
         </div>
 
         {/* View mode & Fullscreen Controls on Right */}
@@ -391,6 +414,12 @@ export const SynchronizedWaveformChart = ({
             <linearGradient id="volt-wave-fill" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.15" />
               <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.0" />
+            </linearGradient>
+
+            {/* P-3 Purple Gradient */}
+            <linearGradient id="p3-wave-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.0" />
             </linearGradient>
           </defs>
 
@@ -596,6 +625,53 @@ export const SynchronizedWaveformChart = ({
             </g>
           )}
 
+          {/* --- RIGHT Y-AXIS 4: CHANNEL P-3 in PURPLE --- */}
+          {channels.p3 && (
+            <g className="font-mono text-[10px] select-none">
+              <line
+                x1={paddingLeft + plotWidth + 184}
+                y1={paddingTop}
+                x2={paddingLeft + plotWidth + 184}
+                y2={paddingTop + plotHeight}
+                stroke="#ddd6fe"
+                strokeWidth="1.2"
+              />
+              {[1.0, 0.5, 0.0, -0.5, -1.0].map((t) => {
+                const y = getY(t, 'p3');
+                return (
+                  <g key={t}>
+                    <line
+                      x1={paddingLeft + plotWidth + 184}
+                      y1={y}
+                      x2={paddingLeft + plotWidth + 188}
+                      y2={y}
+                      stroke="#ddd6fe"
+                    />
+                    <text
+                      x={paddingLeft + plotWidth + 192}
+                      y={y + 3.5}
+                      textAnchor="start"
+                      fill="#8b5cf6"
+                      className="font-bold"
+                    >
+                      {t.toFixed(1)}
+                    </text>
+                  </g>
+                );
+              })}
+              <text
+                x={paddingLeft + plotWidth + 221}
+                y={paddingTop + plotHeight / 2}
+                fill="#8b5cf6"
+                textAnchor="middle"
+                transform={`rotate(-90 ${paddingLeft + plotWidth + 221} ${paddingTop + plotHeight / 2})`}
+                className="font-sans text-[10px] font-bold"
+              >
+                P-3 Value
+              </text>
+            </g>
+          )}
+
           {/* --- THE TELEMETRY SPLINE CURVES --- */}
           {/* 1. Temperature Area Fill + Line */}
           {channels.temp && chartPaths.temp && (
@@ -647,6 +723,20 @@ export const SynchronizedWaveformChart = ({
             />
           )}
 
+          {/* 5. Channel P-3 Spline Line */}
+          {channels.p3 && chartPaths.p3 && (
+            <g>
+              <path d={chartPaths.p3.areaD} fill="url(#p3-wave-fill)" />
+              <path
+                d={chartPaths.p3.lineD}
+                fill="none"
+                stroke="#8b5cf6"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </g>
+          )}
+
           {/* --- INTERACTIVE SCRUBBER CROSSHAIR & INTERSECTION DOTS --- */}
           {hoverData && (
             <g className="pointer-events-none transition-all">
@@ -687,6 +777,13 @@ export const SynchronizedWaveformChart = ({
                 <g>
                   <circle cx={hoverData.x} cy={hoverData.dots.solar.y} r="5" fill="#f97316" />
                   <circle cx={hoverData.x} cy={hoverData.dots.solar.y} r="8" fill="none" stroke="#f97316" strokeWidth="1.5" strokeOpacity="0.4" />
+                </g>
+              )}
+
+              {channels.p3 && hoverData.dots.p3 && (
+                <g>
+                  <circle cx={hoverData.x} cy={hoverData.dots.p3.y} r="5" fill="#8b5cf6" />
+                  <circle cx={hoverData.x} cy={hoverData.dots.p3.y} r="8" fill="none" stroke="#8b5cf6" strokeWidth="1.5" strokeOpacity="0.4" />
                 </g>
               )}
             </g>
@@ -777,6 +874,16 @@ export const SynchronizedWaveformChart = ({
                     <span className="text-slate-300">Photovoltaic</span>
                   </div>
                   <strong className="text-white font-bold">{hoverData.dots.solar.val} %</strong>
+                </div>
+              )}
+
+              {channels.p3 && hoverData.dots.p3 && (
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
+                    <span className="text-slate-300">Channel P-3</span>
+                  </div>
+                  <strong className="text-white font-bold">{hoverData.dots.p3.val}</strong>
                 </div>
               )}
             </div>

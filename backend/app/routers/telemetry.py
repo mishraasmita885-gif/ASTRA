@@ -20,6 +20,10 @@ class SimulationModeRequest(BaseModel):
     start_index: int = Field(default=5200, description="Start index if nasa_p3")
 
 
+class ChannelSwitchRequest(BaseModel):
+    channel: str = Field(..., description="NASA Telemetry Channel ID (e.g. A-1, D-1, P-3, T-1)")
+
+
 @router.get("/health")
 def health_check():
     """
@@ -120,6 +124,42 @@ def set_simulation_mode(payload: SimulationModeRequest):
         "message": f"Simulation mode updated to '{payload.mode}'",
         "mode": payload.mode,
         "start_index": payload.start_index
+    }
+
+
+@router.get("/simulation/channels")
+def get_available_channels():
+    """
+    Returns list of all available NASA SMAP/MSL telemetry channels (82 channels available).
+    """
+    channels = telemetry_service.list_available_channels()
+    return {
+        "channels": channels,
+        "active_channel": getattr(telemetry_service, "active_channel", "P-3"),
+        "total_channels": len(channels)
+    }
+
+
+@router.post("/simulation/channel")
+def switch_active_channel(payload: ChannelSwitchRequest):
+    """
+    Switch active telemetry stream channel (e.g. A-1, D-1, P-3, T-1).
+    """
+    channel_clean = payload.channel.strip().upper()
+    success = telemetry_service.set_channel(channel_clean)
+    if not success:
+        raise HTTPException(status_code=400, detail=f"Failed to load channel '{payload.channel}'")
+
+    event_store.add_audit_entry(
+        type_="COMMAND_UPLINK",
+        subsystem=f"INGESTION ({channel_clean})",
+        event=f"STREAM RECONFIGURED: Switched telemetry ingestion engine to NASA channel {channel_clean}."
+    )
+
+    return {
+        "message": f"Switched active channel to '{channel_clean}'",
+        "active_channel": getattr(telemetry_service, "active_channel", "P-3"),
+        "total_points": telemetry_service.p3_total_points
     }
 
 

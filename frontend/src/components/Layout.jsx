@@ -24,9 +24,9 @@ export const Layout = ({ children }) => {
   const { isSidebarCollapsed } = useMission();
 
   return (
-    <div className="min-h-screen bg-[#f7f4ee] text-[#161514] flex font-sans relative antialiased selection:bg-[#4a2e1b] selection:text-[#fbf7f0] transition-colors duration-300 overflow-x-hidden">
-      {/* Silk Waves Animated Background - higher intensity white crests & rich light brown folds (zero yellow) */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div className="min-h-screen bg-[#f7f4ee] text-[#161514] flex font-sans relative antialiased selection:bg-[#4a2e1b] selection:text-[#fbf7f0] transition-colors duration-300 overflow-x-hidden print:bg-white print:overflow-visible">
+      {/* Silk Waves Animated Background - suppressed in print */}
+      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden print:hidden">
         <SilkWaves
           colors={SILK_WAVE_COLORS}
           speed={0.55}
@@ -42,9 +42,9 @@ export const Layout = ({ children }) => {
         />
       </div>
 
-      {/* Precision Editorial Column Grid Lines (PROJ-E / Awwwards Swiss Architecture style) */}
+      {/* Precision Editorial Column Grid Lines - suppressed in print */}
       <div 
-        className={`fixed inset-0 pointer-events-none z-1 grid grid-cols-4 px-8 max-w-full transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`fixed inset-0 pointer-events-none z-1 grid grid-cols-4 px-8 max-w-full transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] print:hidden ${
           isSidebarCollapsed ? 'pl-20' : 'pl-64'
         }`}
         aria-hidden="true"
@@ -60,13 +60,13 @@ export const Layout = ({ children }) => {
 
       {/* Main Mission Console Area with smooth padding transitions */}
       <div
-        className={`flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+        className={`flex-1 flex flex-col min-w-0 relative z-10 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] print:pl-0 print:m-0 ${
           isSidebarCollapsed ? 'pl-20' : 'pl-64'
         }`}
       >
         <Header />
-        <main className="pt-20 px-8 py-8 flex-1 overflow-y-auto">
-          <div className="max-w-360 mx-auto w-full">
+        <main className="pt-20 px-8 py-8 flex-1 overflow-y-auto print:p-0 print:pt-0 print:overflow-visible print:w-full">
+          <div className="max-w-360 mx-auto w-full print:max-w-full print:p-0">
             {children}
           </div>
         </main>

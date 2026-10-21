@@ -2,7 +2,7 @@ services:
   - type: web
     name: astra-backend
     runtime: python
-    buildCommand: pip install -r backend/requirements.txt
+    buildCommand: (git lfs install && git lfs pull || true) && pip install -r backend/requirements.txt
     startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
