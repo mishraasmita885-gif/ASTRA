@@ -147,17 +147,25 @@ export const Header = () => {
                             ? { backgroundColor: '#452a19', color: '#fbf7f0' }
                             : { backgroundColor: '#fbf7f0', color: '#24140b' }
                         }
-                        className={`px-2.5 py-2 rounded-xl text-xs font-mono text-left flex items-center justify-between transition-colors cursor-pointer border ${
+                        className={`fleet-item px-2.5 py-2 rounded-xl text-xs font-mono text-left flex items-center justify-between transition-colors cursor-pointer border ${
                           isSelected
-                            ? 'border-[#24140b] shadow-[1px_1px_0px_0px_#24140b]'
-                            : 'border-[#4a2e1b]/20 hover:border-[#24140b]'
+                            ? 'fleet-item-active border-[#24140b] shadow-[1px_1px_0px_0px_#24140b]'
+                            : 'fleet-item-inactive border-[#4a2e1b]/20 hover:border-[#24140b]'
                         }`}
                       >
                         <div className="flex items-center gap-2">
                           <span className="text-base">🛰️</span>
                           <div className="flex flex-col">
-                            <span className="font-bold text-xs">{node.name}</span>
-                            <span className={`text-[10px] ${isSelected ? 'text-[#ebdccb]' : 'text-[#73533e]'}`}>
+                            <span
+                              className={`fleet-title font-bold text-xs ${isSelected ? 'text-[#fbf7f0]' : 'text-[#24140b]'}`}
+                              style={{ color: isSelected ? '#fbf7f0' : '#24140b' }}
+                            >
+                              {node.name}
+                            </span>
+                            <span
+                              className={`fleet-subtext text-[10px] ${isSelected ? 'text-[#ebdccb]' : 'text-[#73533e]'}`}
+                              style={{ color: isSelected ? '#ebdccb' : '#73533e' }}
+                            >
                               {node.orbit_regime}
                             </span>
                           </div>
@@ -165,7 +173,7 @@ export const Header = () => {
 
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                            className={`fleet-badge px-1.5 py-0.5 rounded text-[9px] font-bold ${
                               node.status === 'CRITICAL'
                                 ? 'bg-red-500 text-white'
                                 : node.status === 'WARNING'
@@ -175,7 +183,10 @@ export const Header = () => {
                           >
                             {node.status}
                           </span>
-                          <span className={`text-[10px] font-bold ${isSelected ? 'text-[#fea619]' : 'text-[#24140b]'}`}>
+                          <span
+                            className={`fleet-health text-[10px] font-bold ${isSelected ? 'text-[#fea619]' : 'text-[#24140b]'}`}
+                            style={{ color: isSelected ? '#fea619' : '#24140b' }}
+                          >
                             {node.health_score}%
                           </span>
                         </div>

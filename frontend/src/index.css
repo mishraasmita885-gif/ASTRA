@@ -219,14 +219,14 @@ div[class*="rounded-2xl"][class*="bg-slate-50"].cursor-pointer:not(.palette-card
 
 /* 4. Action Buttons directly inside Outer Cards (Level 2: Warm Cream #fbf7f0)
    Ensures buttons inside a card do NOT match the card's light brown background */
-[class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
-[class*="rounded-3xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-3xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
 [class*="rounded-4xl"] a[class*="bg-white"].rounded-xl {
   background-color: #fbf7f0 !important;
 }
 
-[class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
-[class*="rounded-3xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
+[class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
+[class*="rounded-3xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="w-9 h-5"]):not([class*="w-4 h-4"]):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
 [class*="rounded-4xl"] a[class*="bg-white"].rounded-xl:hover {
   background-color: #ebdccb !important;
   transform: translate(-1px, -1px) !important;
@@ -235,17 +235,17 @@ div[class*="rounded-2xl"][class*="bg-slate-50"].cursor-pointer:not(.palette-card
 
 /* 5. Elements INSIDE Level 2 Inset Containers (Level 3: Light Brown #ebdccb / Tan #dfcdb7)
    Ensures buttons, badges, knobs & controls inside an inset container do NOT match that container */
-[class*="rounded-2xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
-[class*="rounded-3xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
-[class*="rounded-2xl"] [class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-2xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-3xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
+[class*="rounded-2xl"] [class*="rounded-2xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]),
 [class*="rounded-4xl"] [class*="rounded-2xl"] div[class*="rounded-full"],
 button div[class*="w-4 h-4"]:not([class*="bg-"]):not([class*="text-white"]) {
   background-color: #ebdccb !important;
   border: 1.5px solid #4a2e1b !important;
 }
 
-[class*="rounded-2xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
-[class*="rounded-3xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover {
+[class*="rounded-2xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover,
+[class*="rounded-3xl"] [class*="rounded-xl"] button:not(aside button):not(.segmented-btn):not(.channel-item):not(.fleet-item):not(.channel-pill):not(.rbac-btn):not([class*="bg-emerald-"]):not([class*="bg-red-"]):not([class*="bg-purple-"]):not([class*="bg-amber-"]):not([class*="bg-sky-"]):not([class*="bg-[#fea619]"]):not([class*="bg-[#fbb973]"]):not([class*="bg-[#1a1816]"]):not([class*="bg-[#1e293b]"]):not([class*="bg-[#233446]"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not([class*="bg-slate-900"]):not([class*="bg-black"]):not([class*="bg-rose-"]):not([class*="bg-blue-"]):hover {
   background-color: #dfcdb7 !important;
 }
 
@@ -264,10 +264,10 @@ header kbd[class*="bg-[#faf8f5]"] {
 header div[class*="font-mono"][class*="bg-white"] {
   background-color: #ebdccb !important;
 }
-header button:not([class*="bg-sky"]):not([class*="bg-[#fbb973]"]):not([class*="bg-emerald"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not(.rbac-btn):not(.channel-item):not(aside button) {
+header button:not([class*="bg-sky"]):not([class*="bg-[#fbb973]"]):not([class*="bg-emerald"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not(.rbac-btn):not(.channel-item):not(.fleet-item):not(aside button) {
   background-color: #ebdccb !important;
 }
-header button:not([class*="bg-sky"]):not([class*="bg-[#fbb973]"]):not([class*="bg-emerald"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not(.rbac-btn):not(.channel-item):not(aside button):hover {
+header button:not([class*="bg-sky"]):not([class*="bg-[#fbb973]"]):not([class*="bg-emerald"]):not([class*="bg-[#452a19]"]):not([class*="bg-[#24140b]"]):not(.rbac-btn):not(.channel-item):not(.fleet-item):not(aside button):hover {
   background-color: #dfcdb7 !important;
 }
 
@@ -361,6 +361,102 @@ button.channel-item.channel-item-inactive:hover {
   background-color: #dfcdb7 !important;
   color: #24140b !important;
   border-color: #24140b !important;
+}
+
+/* Explicit Constellation Fleet Dropdown Item Styling (Flawless Hover & Contrast Locks) */
+button.fleet-item,
+[class*="rounded-2xl"] button.fleet-item,
+[class*="rounded-3xl"] button.fleet-item {
+  transition: all 0.15s ease !important;
+}
+
+button.fleet-item-active,
+[class*="rounded-2xl"] button.fleet-item-active,
+[class*="rounded-3xl"] button.fleet-item-active,
+button.fleet-item.fleet-item-active {
+  background-color: #452a19 !important;
+  color: #fbf7f0 !important;
+  border: 2px solid #24140b !important;
+  box-shadow: 2px 2px 0px 0px #24140b !important;
+}
+
+button.fleet-item-active *,
+[class*="rounded-2xl"] button.fleet-item-active *,
+[class*="rounded-3xl"] button.fleet-item-active *,
+button.fleet-item.fleet-item-active * {
+  color: #fbf7f0 !important;
+}
+
+button.fleet-item-active .fleet-subtext {
+  color: #ebdccb !important;
+}
+
+button.fleet-item-active .fleet-health {
+  color: #fea619 !important;
+}
+
+button.fleet-item-inactive,
+[class*="rounded-2xl"] button.fleet-item-inactive,
+[class*="rounded-3xl"] button.fleet-item-inactive,
+button.fleet-item.fleet-item-inactive {
+  background-color: #fbf7f0 !important;
+  color: #24140b !important;
+  border: 1.5px solid #4a2e1b !important;
+  box-shadow: 2px 2px 0px 0px rgba(74, 46, 27, 0.2) !important;
+}
+
+button.fleet-item-inactive *,
+[class*="rounded-2xl"] button.fleet-item-inactive *,
+[class*="rounded-3xl"] button.fleet-item-inactive *,
+button.fleet-item.fleet-item-inactive * {
+  color: #24140b !important;
+}
+
+button.fleet-item-inactive .fleet-title,
+button.fleet-item-inactive .fleet-title * {
+  color: #161514 !important;
+}
+
+button.fleet-item-inactive .fleet-subtext,
+button.fleet-item-inactive .fleet-subtext * {
+  color: #73533e !important;
+}
+
+button.fleet-item-inactive .fleet-health {
+  color: #24140b !important;
+}
+
+/* Hover state for inactive fleet item: rich warm tan, pitch-dark ink text, NEVER WHITE */
+button.fleet-item-inactive:hover,
+[class*="rounded-2xl"] button.fleet-item-inactive:hover,
+[class*="rounded-3xl"] button.fleet-item-inactive:hover,
+button.fleet-item.fleet-item-inactive:hover {
+  background-color: #dfcdb7 !important;
+  color: #24140b !important;
+  border-color: #24140b !important;
+  box-shadow: 3px 3px 0px 0px #24140b !important;
+  transform: translate(-1px, -1px) !important;
+}
+
+button.fleet-item-inactive:hover *,
+[class*="rounded-2xl"] button.fleet-item-inactive:hover *,
+[class*="rounded-3xl"] button.fleet-item-inactive:hover *,
+button.fleet-item.fleet-item-inactive:hover * {
+  color: #24140b !important;
+}
+
+button.fleet-item-inactive:hover .fleet-title,
+button.fleet-item-inactive:hover .fleet-title * {
+  color: #161514 !important;
+}
+
+button.fleet-item-inactive:hover .fleet-subtext,
+button.fleet-item-inactive:hover .fleet-subtext * {
+  color: #5c3d28 !important;
+}
+
+button.fleet-item-inactive:hover .fleet-health {
+  color: #24140b !important;
 }
 
 /* 7. Buttons inside dedicated colored banners (e.g. alert banner bg-red-600) */
