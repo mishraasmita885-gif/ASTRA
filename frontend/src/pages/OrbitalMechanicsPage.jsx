@@ -369,11 +369,11 @@ export const OrbitalMechanicsPage = () => {
           </div>
 
           {/* Full-Height Responsive Map Viewport */}
-          <div className="flex-1 w-full min-h-[560px] relative overflow-hidden bg-[#0a0e17]">
+          <div className="flex-1 w-full min-h-[560px] relative overflow-hidden bg-[#0a0e17] isolate z-0">
             <MapContainer
               center={[currentLat ?? 10, currentLon ?? 0]}
               zoom={2}
-              style={{ height: '100%', width: '100%', minHeight: '560px', background: '#0a0e17' }}
+              style={{ height: '100%', width: '100%', minHeight: '560px', background: '#0a0e17', zIndex: 0 }}
               zoomControl={true}
               attributionControl={true}
               worldCopyJump={true}

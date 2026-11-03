@@ -817,6 +817,8 @@ aside button:not([class*="bg-[#452a19]"]):not([class*="bg-[#fea619]"]):active {
 
 .leaflet-container {
   background: #1a1a2e !important;
+  z-index: 0 !important;
+  isolation: isolate;
 }
 
 .leaflet-control-zoom a {
