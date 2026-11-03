@@ -114,6 +114,60 @@
   },
   "audit_log": [
     {
+      "id": "evt_1793726939252",
+      "time": "22:58:59",
+      "timestamp_epoch": 1793726939.2524066,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1793726938387",
+      "time": "22:58:58",
+      "timestamp_epoch": 1793726938.387927,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1793726838418",
+      "time": "22:57:18",
+      "timestamp_epoch": 1793726838.4185941,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1793726837876",
+      "time": "22:57:17",
+      "timestamp_epoch": 1793726837.8770895,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-ALPHA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-ALPHA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1793726825802",
+      "time": "22:57:05",
+      "timestamp_epoch": 1793726825.8022654,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
+      "id": "evt_1793726824805",
+      "time": "22:57:04",
+      "timestamp_epoch": 1793726824.8056948,
+      "type": "COMMAND_UPLINK",
+      "subsystem": "FLEET (ASTRA-BETA)",
+      "event": "STREAM RECONFIGURED: Switched ground telemetry monitoring focus to constellation node ASTRA-BETA.",
+      "telemetry_summary": null
+    },
+    {
       "id": "evt_1793724809920",
       "time": "22:23:29",
       "timestamp_epoch": 1793724809.9206088,

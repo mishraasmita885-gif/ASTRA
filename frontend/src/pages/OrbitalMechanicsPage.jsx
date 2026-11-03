@@ -88,7 +88,7 @@ function MapResizeHandler() {
   return null;
 }
 
-// Satellite animated marker component
+// Satellite animated marker component with real-time tooltip sync
 function SatelliteMarker({ lat, lon, spacecraftId }) {
   const map = useMap();
   const markerRef = useRef(null);
@@ -124,9 +124,22 @@ function SatelliteMarker({ lat, lon, spacecraftId }) {
       markerRef.current = marker;
     } else {
       markerRef.current.setLatLng(pos);
+      // Dynamically update tooltip content in real time when spacecraft changes
+      const currentTooltip = markerRef.current.getTooltip();
+      if (currentTooltip) {
+        markerRef.current.setTooltipContent(`🛰️ ${spacecraftId}`);
+      } else {
+        markerRef.current.bindTooltip(`🛰️ ${spacecraftId}`, {
+          permanent: false,
+          className: 'orbital-item',
+          direction: 'top',
+          offset: [0, -18],
+        });
+      }
     }
   }, [lat, lon, map, spacecraftId]);
 
+  // Clean up old marker when spacecraftId changes or unmounts
   useEffect(() => {
     return () => {
       if (markerRef.current) {
@@ -134,7 +147,7 @@ function SatelliteMarker({ lat, lon, spacecraftId }) {
         markerRef.current = null;
       }
     };
-  }, []);
+  }, [spacecraftId, map]);
 
   return null;
 }
@@ -175,6 +188,7 @@ export const OrbitalMechanicsPage = () => {
   }, [spacecraftId]);
 
   useEffect(() => {
+    setIsLoading(true);
     pollCurrentState();
     pollGroundTrack();
 
@@ -185,7 +199,7 @@ export const OrbitalMechanicsPage = () => {
       if (stateIntervalRef.current) clearInterval(stateIntervalRef.current);
       if (trackIntervalRef.current) clearInterval(trackIntervalRef.current);
     };
-  }, [pollCurrentState, pollGroundTrack]);
+  }, [spacecraftId, pollCurrentState, pollGroundTrack]);
 
   // Sync with WebSocket context orbital state if available
   useEffect(() => {
@@ -450,7 +464,7 @@ export const OrbitalMechanicsPage = () => {
 
               {/* Live Spacecraft Animated Marker */}
               {currentLat != null && currentLon != null && (
-                <SatelliteMarker lat={currentLat} lon={currentLon} spacecraftId={spacecraftId} />
+                <SatelliteMarker key={spacecraftId} lat={currentLat} lon={currentLon} spacecraftId={spacecraftId} />
               )}
             </MapContainer>
 
