@@ -18,6 +18,7 @@ import {
   Layers,
   Activity,
   ShieldAlert,
+  MapPin,
 } from 'lucide-react';
 
 // Fix Leaflet default icon issue with Vite bundler
@@ -37,12 +38,55 @@ const SAA_POLYGON_COORDS = [
   [ 10.0, -90.0],
 ];
 
+// Available Map Tile Layers (Google Satellite default, Google Maps, Dark Tactical)
+const MAP_LAYERS = {
+  google_satellite: {
+    id: 'google_satellite',
+    label: 'Google Satellite',
+    icon: '🛰️',
+    url: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google Maps Satellite Imagery',
+    maxZoom: 20,
+  },
+  google_roadmap: {
+    id: 'google_roadmap',
+    label: 'Google Maps',
+    icon: '🗺️',
+    url: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    attribution: '&copy; Google Maps Cartography',
+    maxZoom: 20,
+  },
+  dark_tactical: {
+    id: 'dark_tactical',
+    label: 'Dark Tactical',
+    icon: '🌑',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+    maxZoom: 16,
+  },
+};
+
 // DSN Ground Station metadata
 const DSN_STATIONS_META = {
   Goldstone: { label: 'Goldstone DSN (USA)', country: 'USA' },
   Madrid:    { label: 'Madrid DSN (ESP)',    country: 'ESP' },
   Canberra:  { label: 'Canberra DSN (AUS)',  country: 'AUS' },
 };
+
+// Leaflet resize synchronizer ensuring tiles expand to 100% of container height
+function MapResizeHandler() {
+  const map = useMap();
+  useEffect(() => {
+    map.invalidateSize();
+    const t1 = setTimeout(() => map.invalidateSize(), 150);
+    const t2 = setTimeout(() => map.invalidateSize(), 600);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [map]);
+  return null;
+}
 
 // Satellite animated marker component
 function SatelliteMarker({ lat, lon, spacecraftId }) {
@@ -99,6 +143,7 @@ export const OrbitalMechanicsPage = () => {
   const { activeSpacecraft, orbitalState: contextOrbitalState, telemetry } = useMission();
   const spacecraftId = activeSpacecraft || 'ASTRA-ALPHA';
 
+  const [activeMapLayer, setActiveMapLayer] = useState('google_satellite');
   const [orbitalState, setOrbitalState] = useState(null);
   const [groundTrack, setGroundTrack] = useState(null);
   const [dsnPasses, setDsnPasses] = useState(null);
@@ -158,6 +203,7 @@ export const OrbitalMechanicsPage = () => {
   const currentLat = orbitalState?.latitude;
   const currentLon = orbitalState?.longitude;
   const isInSAA = saaStatus?.inside || orbitalState?.saa_inside || telemetry?.saa_active || false;
+  const activeLayerConfig = MAP_LAYERS[activeMapLayer] || MAP_LAYERS.google_satellite;
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-12 font-mono">
@@ -176,7 +222,7 @@ export const OrbitalMechanicsPage = () => {
             </span>
           </div>
           <p className="font-mono text-xs text-[#73533e]">
-            Real-Time Two-Line Element (TLE) Propagation · CelesTrak Feed · DSN Visibility · SAA Telemetry Correlation
+            Real-Time Two-Line Element (TLE) Propagation · Google Maps Satellite & Roadmap · DSN Visibility · SAA Telemetry Correlation
           </p>
         </div>
 
@@ -274,34 +320,56 @@ export const OrbitalMechanicsPage = () => {
       </div>
 
       {/* Main Map + Side Telemetry Correlation Matrix */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Interactive World Ground Track Map */}
-        <div className="lg:col-span-2 bg-[#ebdccb] border-2 border-[#452a19] shadow-[3px_3px_0px_#452a19] rounded-2xl overflow-hidden flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#452a19] bg-[#e0cdb8]">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        {/* Interactive World Ground Track Map Card - Stretches 100% of Column */}
+        <div className="lg:col-span-2 bg-[#ebdccb] border-2 border-[#452a19] shadow-[3px_3px_0px_#452a19] rounded-2xl overflow-hidden flex flex-col h-full min-h-[620px]">
+          <div className="flex items-center justify-between px-4 py-3 border-b-2 border-[#452a19] bg-[#e0cdb8] flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-[#452a19]" />
               <span className="font-mono font-bold text-xs text-[#24140b] uppercase tracking-widest">
                 Orbital Ground Track Map · {spacecraftId}
               </span>
             </div>
-            <span className="font-mono text-[9px] text-[#73533e] font-bold">
-              Esri Dark Canvas · ±45 Min Window
-            </span>
+
+            {/* Google Maps vs Dark Tactical Basemap Selector */}
+            <div className="flex items-center gap-1 bg-[#ebdccb] p-1 rounded-xl border border-[#4a2e1b]/30">
+              {Object.values(MAP_LAYERS).map((layer) => {
+                const isActive = activeMapLayer === layer.id;
+                return (
+                  <button
+                    key={layer.id}
+                    onClick={() => setActiveMapLayer(layer.id)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#452a19] text-[#fbf7f0] border border-[#24140b] shadow-[1px_1px_0px_#24140b]'
+                        : 'text-[#4a2e1b] hover:bg-[#dfcdb7]'
+                    }`}
+                    title={`Switch basemap to ${layer.label}`}
+                  >
+                    <span>{layer.icon}</span>
+                    <span>{layer.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          <div style={{ height: '480px', position: 'relative' }}>
+          {/* Full-Height Responsive Map Viewport */}
+          <div className="flex-1 w-full min-h-[560px] relative overflow-hidden bg-[#0a0e17]">
             <MapContainer
               center={[currentLat ?? 10, currentLon ?? 0]}
               zoom={2}
-              style={{ height: '100%', width: '100%', background: '#1a1a2e' }}
+              style={{ height: '100%', width: '100%', minHeight: '560px', background: '#0a0e17' }}
               zoomControl={true}
               attributionControl={true}
               worldCopyJump={true}
             >
+              <MapResizeHandler />
               <TileLayer
-                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
-                attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
-                maxZoom={16}
+                key={activeMapLayer}
+                url={activeLayerConfig.url}
+                attribution={activeLayerConfig.attribution}
+                maxZoom={activeLayerConfig.maxZoom}
               />
 
               {/* South Atlantic Anomaly (SAA) Bounding Polygon */}
@@ -310,13 +378,13 @@ export const OrbitalMechanicsPage = () => {
                 pathOptions={{
                   color: '#ef4444',
                   fillColor: '#ef4444',
-                  fillOpacity: isInSAA ? 0.4 : 0.16,
-                  weight: 2,
+                  fillOpacity: isInSAA ? 0.45 : 0.2,
+                  weight: 2.5,
                   dashArray: isInSAA ? null : '6,4',
                 }}
               >
                 <Tooltip sticky className="orbital-item">
-                  <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fbf7f0', background: '#24140b', padding: '4px 8px', borderRadius: '6px' }}>
+                  <div style={{ fontFamily: 'monospace', fontSize: '11px', color: '#fbf7f0', background: '#24140b', padding: '6px 10px', borderRadius: '6px' }}>
                     <strong>☢ South Atlantic Anomaly (SAA)</strong>
                     <br />
                     Van Allen Belt Magnetic Anomaly
@@ -329,15 +397,15 @@ export const OrbitalMechanicsPage = () => {
               {pastTrack.length > 1 && (
                 <Polyline
                   positions={pastTrack}
-                  pathOptions={{ color: '#fea619', weight: 2.8, opacity: 0.9 }}
+                  pathOptions={{ color: '#fea619', weight: 3.2, opacity: 0.95 }}
                 />
               )}
 
-              {/* Projected Ground Track (Dashed Cool Grey #94a3b8) */}
+              {/* Projected Ground Track (Dashed Cool Blue #38bdf8 for high contrast) */}
               {futureTrack.length > 1 && (
                 <Polyline
                   positions={futureTrack}
-                  pathOptions={{ color: '#94a3b8', weight: 2, opacity: 0.65, dashArray: '8,6' }}
+                  pathOptions={{ color: '#38bdf8', weight: 2.5, opacity: 0.85, dashArray: '8,6' }}
                 />
               )}
 
@@ -349,12 +417,12 @@ export const OrbitalMechanicsPage = () => {
                     <CircleMarker
                       key={name}
                       center={[info.lat, info.lon]}
-                      radius={info.visible ? 10 : 7}
+                      radius={info.visible ? 11 : 8}
                       pathOptions={{
-                        color: info.visible ? '#22c55e' : '#64748b',
-                        fillColor: info.visible ? '#86efac' : '#334155',
-                        fillOpacity: 0.9,
-                        weight: 2,
+                        color: info.visible ? '#22c55e' : '#94a3b8',
+                        fillColor: info.visible ? '#4ade80' : '#475569',
+                        fillOpacity: 0.95,
+                        weight: 2.5,
                       }}
                     >
                       <Tooltip className="orbital-item" direction="top" offset={[0, -10]}>
@@ -405,11 +473,11 @@ export const OrbitalMechanicsPage = () => {
             >
               <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '22px', height: '3px', background: '#fea619', borderRadius: '2px' }} />
+                  <div style={{ width: '22px', height: '3.5px', background: '#fea619', borderRadius: '2px' }} />
                   <span>Past Ground Track (-45m)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '22px', height: '2px', background: '#94a3b8', borderRadius: '2px', backgroundImage: 'repeating-linear-gradient(90deg, #94a3b8 0px, #94a3b8 6px, transparent 6px, transparent 12px)' }} />
+                  <div style={{ width: '22px', height: '2.5px', background: '#38bdf8', borderRadius: '2px', backgroundImage: 'repeating-linear-gradient(90deg, #38bdf8 0px, #38bdf8 6px, transparent 6px, transparent 12px)' }} />
                   <span>Projected Track (+45m)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -417,11 +485,11 @@ export const OrbitalMechanicsPage = () => {
                   <span>South Atlantic Anomaly</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#86efac', border: '2px solid #22c55e' }} />
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#4ade80', border: '2px solid #22c55e' }} />
                   <span>DSN Station (In Contact)</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#334155', border: '2px solid #64748b' }} />
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#475569', border: '2px solid #94a3b8' }} />
                   <span>DSN Station (Out of Range)</span>
                 </div>
               </div>
@@ -607,11 +675,10 @@ export const OrbitalMechanicsPage = () => {
 
       {/* Footer Info & Telemetry Reference */}
       <div className="text-center font-mono text-[10px] text-[#73533e] py-3 border-t border-[#4a2e1b]/20">
-        Live SGP4 Propagator Engine · TLE Source: <span className="font-bold text-[#24140b]">CelesTrak SATCAT</span> (hourly refresh) ·
+        Live SGP4 Propagator Engine · Basemap: <span className="font-bold text-[#24140b]">{activeLayerConfig.label}</span> · TLE Source: <span className="font-bold text-[#24140b]">CelesTrak SATCAT</span> (hourly refresh) ·
         Coordinate Transformations: TEME → ECEF (GMST rotation) → Geodetic WGS84 ·
         {groundTrack?.track?.length ? ` ${groundTrack.track.length} orbital track points computed dynamically.` : ' Initializing ephemeris stream.'}
       </div>
     </div>
   );
 };
-
