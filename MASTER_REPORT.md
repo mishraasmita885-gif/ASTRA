@@ -27,7 +27,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 1. Why Does ASTRA Exist?
 2. The Big Idea (The Solution)
 3. System Architecture
-4. Every Feature Explained (Features 1 through 18)
+4. Every Feature Explained (Features 1 through 20)
 5. The Complete User Journey (Step-by-Step)
 6. The Technology Stack
 7. The AI Brain — Gemini Multi-Model Cascade & Aerospace Copilot
@@ -469,6 +469,40 @@ This means ASTRA **never fails** to produce a diagnosis.
    - `GET /api/v1/orbital/dsn-passes`: Real-time line-of-sight status and elevation angles for DSN stations.
    - `GET /api/v1/orbital/saa-status`: SAA polygon intersection test with predicted entry/exit times.
    - Enhanced `/ws/telemetry` pushes live `orbital_state` alongside every 1.2s telemetry tick.
+
+---
+
+### Feature 20: Predictive Time-Series Forecasting & Runway Horizon Alarms
+**What it is:** A dynamic predictive forecasting and runway countdown engine that transitions ASTRA from reactive anomaly detection to proactive, predictive failure avoidance. By analyzing rolling 60-tick sliding windows of live telemetry via Ordinary Least Squares (OLS) regression, ASTRA projects future sensor values 15 to 30 steps ahead, calculates exact time-to-breach countdowns for safety thresholds, and displays high-priority tactical alarms and dashed trajectory lines on live waveform charts.
+
+**CRITICAL ARCHITECTURAL GUARANTEE:** ZERO HARDCODED VALUES OR STATIC MOCK FORECASTS. All slopes, velocity vectors, projected trajectory points, and runway countdown seconds are mathematically derived from live streaming telemetry in real time.
+
+**Key Technical Capabilities:**
+1. **Rolling Sliding-Window OLS Regression (`backend/app/services/forecasting_service.py`):**
+   - Maintains dedicated `ChannelBuffer` instances (60-tick rolling deque) per `(spacecraft_id, channel_key)` pair.
+   - Calculates real-time velocity slope ($v$) using the closed-form Ordinary Least Squares formula:
+     $$\text{slope} = \frac{n \sum (i \cdot y_i) - \sum i \sum y_i}{n \sum i^2 - (\sum i)^2}$$
+   - Extrapolates future trajectory 30 steps ahead:
+     $$\hat{x}(t + i) = x(t) + (\text{slope} \times i), \quad i \in [1, 30]$$
+2. **Dynamic Runway Countdown (Time-to-Breach) Calculator:**
+   - Evaluates dynamic critical and warning safety thresholds per channel (e.g. Battery SoC critical low < 20.0%, Bus Voltage critical low < 20.0 V, Thermal Core critical high > 75.0 °C).
+   - Computes physical time-to-breach in seconds:
+     $$\text{Time-to-Breach (sec)} = \frac{|\text{Threshold Limit} - x(t)|}{|\text{Slope per Second}|}$$
+   - When projected runway falls below safety margin (< 300 seconds), generates a `PREDICTIVE_WARNING` alarm event.
+   - Intelligent debouncing throttles audit log emissions (at most once every 60s per channel) to prevent disk and database saturation while preserving full situational awareness.
+3. **High-Priority Tactical Warning Banner (`RunwayAlarmBanner.jsx`):**
+   - Mounted at the top of the **Live Telemetry** and **Anomaly Center** operational decks.
+   - Digital countdown clock dynamically decrements every second: `⚠️ PREDICTIVE ALARM: Battery SoC projected to breach 20% threshold in 3m 42s`.
+   - Severity-driven Swiss Neo-Brutalist styling (Critical: Dark Red / Warning: Dark Brown with Amber accent).
+4. **Synchronized Waveform Chart Horizon Overlay (`SynchronizedWaveformChart.jsx`):**
+   - Dynamically scales the X-axis domain, allocating 25% of chart width to the future predictive horizon.
+   - Renders dashed predictive trajectory lines (`strokeDasharray="5 4"`) extending forward from the live `T-0 Live` boundary marker across the next +25 seconds of telemetry.
+   - Shaded amber background and vertical dividing line cleanly delineate historical telemetry from the forward predictive window.
+5. **REST & WebSocket Endpoints:**
+   - `GET /api/v1/forecasting/channel/{channel_id}?spacecraft_id=ASTRA-ALPHA`: Live 30-step trajectory and runway metrics for a single channel.
+   - `GET /api/v1/forecasting/summary?spacecraft_id=ASTRA-ALPHA`: Aggregated forecasting state across all monitored channels.
+   - `GET /api/v1/forecasting/alarms?spacecraft_id=ASTRA-ALPHA`: Filtered list of channels with active breach countdowns.
+   - WebSocket `/ws/telemetry`: Every tick includes a structured `forecast` payload containing future projected points and active runway countdown timers.
 
 ---
 
