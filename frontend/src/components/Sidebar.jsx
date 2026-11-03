@@ -3,6 +3,7 @@ import { useMission } from '../context/MissionContext';
 import {
   Box,
   Radio,
+  Globe,
   Activity,
   Boxes,
   ShieldAlert,
@@ -25,6 +26,7 @@ export const Sidebar = () => {
   const missionNav = [
     { id: 'welcome', label: 'Overview', icon: Box },
     { id: 'fleet', label: 'Fleet Mesh', icon: Radio },
+    { id: 'orbital', label: 'Orbital Track', icon: Globe },
     { id: 'telemetry', label: 'Live Telemetry', icon: Activity },
     { id: 'subsystems', label: 'Subsystems', icon: Boxes },
     {

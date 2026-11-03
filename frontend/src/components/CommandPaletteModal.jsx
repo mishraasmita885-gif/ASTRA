@@ -19,6 +19,7 @@ import {
   ArrowRight,
   Sliders,
   Layers,
+  Globe,
 } from 'lucide-react';
 
 export const CommandPaletteModal = ({ isOpen, onClose }) => {
@@ -172,6 +173,17 @@ export const CommandPaletteModal = ({ isOpen, onClose }) => {
         icon: Settings,
         action: () => {
           setActiveTab('settings');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-orbital',
+        category: 'NAVIGATION',
+        title: 'Orbital Mechanics & Ground Track Map',
+        subtitle: 'Live SGP4 propagation, CelesTrak TLE, DSN visibility, SAA radiation correlation',
+        icon: Globe,
+        action: () => {
+          setActiveTab('orbital');
           onClose();
         },
       },

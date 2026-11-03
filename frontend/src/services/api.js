@@ -219,3 +219,53 @@ export async function switchFleetSpacecraft(spacecraftId) {
 }
 
 
+
+// ============================================================
+// Orbital Mechanics & SGP4 API Functions
+// ============================================================
+
+export async function fetchCurrentOrbitalState(spacecraftId = 'ASTRA-ALPHA') {
+  try {
+    const res = await fetch(`${API_BASE}/orbital/current-state?spacecraft_id=${encodeURIComponent(spacecraftId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Orbital] Failed to fetch current state:', err);
+    return null;
+  }
+}
+
+export async function fetchGroundTrack(spacecraftId = 'ASTRA-ALPHA', minutesBack = 45, minutesForward = 45) {
+  try {
+    const res = await fetch(
+      `${API_BASE}/orbital/ground-track?spacecraft_id=${encodeURIComponent(spacecraftId)}&minutes_back=${minutesBack}&minutes_forward=${minutesForward}&step_seconds=30`
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Orbital] Failed to fetch ground track:', err);
+    return null;
+  }
+}
+
+export async function fetchDsnPasses(spacecraftId = 'ASTRA-ALPHA') {
+  try {
+    const res = await fetch(`${API_BASE}/orbital/dsn-passes?spacecraft_id=${encodeURIComponent(spacecraftId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Orbital] Failed to fetch DSN passes:', err);
+    return null;
+  }
+}
+
+export async function fetchSaaStatus(spacecraftId = 'ASTRA-ALPHA') {
+  try {
+    const res = await fetch(`${API_BASE}/orbital/saa-status?spacecraft_id=${encodeURIComponent(spacecraftId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Orbital] Failed to fetch SAA status:', err);
+    return null;
+  }
+}

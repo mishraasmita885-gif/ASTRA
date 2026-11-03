@@ -15,8 +15,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import telemetry, events, websocket, fleet
+from app.routers import telemetry, events, websocket, fleet, orbital
 from app.services.telemetry_service import telemetry_service
+from app.services.orbital_service import orbital_service
 
 logging.basicConfig(
     level=logging.INFO,
@@ -34,6 +35,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"Detector Channel: {telemetry_service.detector.channel}")
     logger.info(f"Threshold: {telemetry_service.detector.threshold}")
     logger.info(f"NASA P-3 Points loaded: {telemetry_service.p3_total_points}")
+    # Initialize SGP4 orbital propagation service with live CelesTrak TLEs
+    try:
+        await orbital_service.initialize()
+        logger.info("ASTRA Orbital SGP4 propagation engine successfully initialized.")
+    except Exception as e:
+        logger.warning(f"ASTRA Orbital service initial TLE fetch warning (will retry): {e}")
     yield
     logger.info("ASTRA Mission Control Backend Shutting down...")
 
@@ -58,6 +65,7 @@ app.add_middleware(
 app.include_router(telemetry.router, prefix=settings.API_V1_STR, tags=["Telemetry & Metrics"])
 app.include_router(events.router, prefix=settings.API_V1_STR, tags=["Anomaly Events & AI"])
 app.include_router(fleet.router, prefix=f"{settings.API_V1_STR}/fleet", tags=["Constellation Fleet & ISL Mesh"])
+app.include_router(orbital.router, prefix=f"{settings.API_V1_STR}/orbital", tags=["Orbital Mechanics & SGP4 Engine"])
 app.include_router(websocket.router, tags=["Real-time Stream"])
 
 

@@ -12,6 +12,7 @@ import { SimulationPage } from './pages/SimulationPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MissionReportsPage } from './pages/MissionReportsPage';
 import { FleetOverviewPage } from './pages/FleetOverviewPage';
+import { OrbitalMechanicsPage } from './pages/OrbitalMechanicsPage';
 
 const AppContent = () => {
   const { activeTab } = useMission();
@@ -24,6 +25,8 @@ const AppContent = () => {
         return <MissionOverviewPage />;
       case 'fleet':
         return <FleetOverviewPage />;
+      case 'orbital':
+        return <OrbitalMechanicsPage />;
       case 'telemetry':
         return <LiveTelemetryPage />;
       case 'subsystems':

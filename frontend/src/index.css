@@ -796,3 +796,51 @@ aside button:not([class*="bg-[#452a19]"]):not([class*="bg-[#fea619]"]):active {
 
 
 
+
+/* ============================================================
+   LEAFLET MAP & ORBITAL GROUND TRACK EXCLUSIONS
+   Prevent Swiss Neo-Brutalist design system from bleeding into Leaflet elements
+   ============================================================ */
+.leaflet-container,
+.leaflet-container *,
+.leaflet-control *,
+.leaflet-popup *,
+.leaflet-pane *,
+.leaflet-tile-container *,
+.leaflet-tile,
+.orbital-item,
+.orbital-item * {
+  border: none !important;
+  box-shadow: none !important;
+  font-family: inherit;
+}
+
+.leaflet-container {
+  background: #1a1a2e !important;
+}
+
+.leaflet-control-zoom a {
+  background: #452a19 !important;
+  color: #fbf7f0 !important;
+  border: 2px solid #24140b !important;
+  box-shadow: 2px 2px 0px #24140b !important;
+  font-weight: bold !important;
+  border-radius: 8px !important;
+  margin-bottom: 4px !important;
+}
+
+.leaflet-control-zoom a:hover {
+  background: #5c3822 !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(36, 20, 11, 0.75) !important;
+  color: #d5bfae !important;
+  font-size: 9px !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #fea619 !important;
+}

@@ -5,6 +5,7 @@ from typing import Set
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services.telemetry_service import telemetry_service
+from app.services.orbital_service import orbital_service
 from app.storage.event_store import event_store
 
 logger = logging.getLogger("astra.websocket")
@@ -50,9 +51,11 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
 
         # Send initial connection confirmation and state
         initial_state = telemetry_service.generate_next_tick()
+        initial_orbital = await orbital_service.get_current_state(telemetry_service.active_spacecraft)
         await websocket.send_text(json.dumps({
             "type": "CONNECTION_ESTABLISHED",
             "telemetry": initial_state,
+            "orbital_state": initial_orbital,
             "spacecraft_id": telemetry_service.active_spacecraft,
             "fleet_summary": telemetry_service.get_fleet_summary(),
             "events_count": len(event_store.list_events())
@@ -105,13 +108,23 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
             except json.JSONDecodeError:
                 pass
 
-            # Push telemetry tick
+            # Push telemetry tick with real-time SGP4 orbital positioning
             tick = telemetry_service.generate_next_tick()
+            orbital_state = await orbital_service.get_current_state(telemetry_service.active_spacecraft)
+            
+            # Cross-correlate SAA radiation crossing with live telemetry spikes
+            saa_perturbations = orbital_service.get_saa_perturbations()
+            if saa_perturbations.get("radiation_spike"):
+                tick["temperature"] = round(tick.get("temperature", 15.0) + saa_perturbations["temperature_delta"], 2)
+                tick["voltage"] = round(tick.get("voltage", 24.0) + saa_perturbations["voltage_delta"], 2)
+                tick["saa_active"] = True
+
             events = event_store.list_events()
             
             await websocket.send_text(json.dumps({
                 "type": "TELEMETRY_TICK",
                 "telemetry": tick,
+                "orbital_state": orbital_state,
                 "spacecraft_id": telemetry_service.active_spacecraft,
                 "fleet_summary": telemetry_service.get_fleet_summary(),
                 "active_events_count": len([e for e in events if e.status in ["ANOMALY_DETECTED", "UNDER_REVIEW"]]),

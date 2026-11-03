@@ -107,7 +107,8 @@ export const MissionProvider = ({ children }) => {
     { id: 3, source_sat: 'ASTRA-GAMMA', target_sat: 'ASTRA-ALPHA', latency_ms: 28.6, packet_loss_pct: 0.02, snr_db: 14.9, status: 'NOMINAL', throughput_mbps: 105.0, band: 'Ka-Band Crosslink' }
   ]);
 
-  const [fleetSummary, setFleetSummary] = useState({
+  const [fleetSummary,
+        orbitalState, setFleetSummary] = useState({
     total_spacecraft: 3,
     active_spacecraft: 'ASTRA-ALPHA',
     status: 'NOMINAL',
@@ -118,6 +119,9 @@ export const MissionProvider = ({ children }) => {
     isl_avg_latency_ms: 27.1,
     isl_avg_loss_pct: 0.02
   });
+
+  // Real-Time Orbital Position & SGP4 State
+  const [orbitalState, setOrbitalState] = useState(null);
 
   // Role-Based Access Control (RBAC)
   const [operatorRole, setOperatorRoleState] = useState(() => {
@@ -416,6 +420,9 @@ export const MissionProvider = ({ children }) => {
               }
               if (tel.isl_links) {
                 setIslLinks(tel.isl_links);
+              }
+              if (data.orbital_state) {
+                setOrbitalState(data.orbital_state);
               }
               if (data.fleet_summary || tel.fleet_summary) {
                 setFleetSummary(data.fleet_summary || tel.fleet_summary);

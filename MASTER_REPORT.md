@@ -426,6 +426,52 @@ This means ASTRA **never fails** to produce a diagnosis.
 
 ---
 
+### Feature 19: Real-Time SGP4 Orbital Propagator, Ground Track Map & SAA Anomaly Engine
+**What it is:** High-precision, zero-mock dynamic orbital mechanics engine calculating real-time satellite trajectories from live Two-Line Element (TLE) ephemeris feeds, rendering an interactive 2D world map with ground tracks, DSN line-of-sight visibility windows, daylight terminator curves, and live South Atlantic Anomaly (SAA) radiation spike telemetry cross-correlation.
+
+**CRITICAL ARCHITECTURAL GUARANTEE:** NO HARDCODED OR STATIC POSITIONAL DATA. All satellite sub-points, ground track polylines, topocentric elevation angles, daylight terminator boundaries, and SAA polygon intersections are calculated live from current UTC timestamps and CelesTrak ephemeris models.
+
+**Key Technical Capabilities:**
+1. **Live CelesTrak TLE Ingestion & SGP4 Numerical Propagation:**
+   - Background service (`backend/app/services/orbital_service.py`) dynamically ingests live TLE sets from CelesTrak on startup and hourly intervals for:
+     - `ASTRA-ALPHA`: NASA SMAP Satellite (`CATNR=41240`)
+     - `ASTRA-BETA`: International Space Station (`CATNR=25544`)
+     - `ASTRA-GAMMA`: Sentinel-3B (`CATNR=43013`)
+   - Evaluates the standard SGP4 orbital model using Python `sgp4.api` and Julian dates ($JD, FR$).
+   - Converts True Equator Mean Equinox (TEME) vectors into Pseudo-ECEF via Greenwich Mean Sidereal Time (GMST) rotation:
+     $$\theta_{GMST} = 280.46061837^{\circ} + 360.98564736629^{\circ} \cdot d$$
+   - Iterative Bowring ellipsoid transformation to WGS84 Geodetic Latitude, Longitude, and Altitude.
+
+2. **Full Ground Track Projection Window (90 Minutes):**
+   - Propagates historical ground tracks (-45 minutes, solid amber `#fea619`) and projected orbital paths (+45 minutes, dashed cool grey `#94a3b8`) sampled at 30-second steps.
+   - Calculates subsolar point to render dynamic day/night terminator shading across the world map.
+
+3. **Deep Space Network (DSN) Line-of-Sight Window Analysis:**
+   - Real-time geometric horizon elevation calculations for NASA's core DSN complexes:
+     - **Goldstone DSN** (California, USA: 35.43° N, 116.89° W)
+     - **Madrid DSN** (Spain: 40.43° N, 4.25° W)
+     - **Canberra DSN** (Australia: 35.40° S, 148.98° E)
+   - Enforces standard 10.0° horizon elevation mask.
+   - Automatically computes future Acquisition of Signal (AOS) and Loss of Signal (LOS) timestamps with live status badges.
+
+4. **South Atlantic Anomaly (SAA) Radiation Perturbation Injection:**
+   - Performs ray-casting point-in-polygon verification against the IEEE/NASA geomagnetic SAA bounding polygon:
+     `[(-50°, -90°), (-50°, -30°), (-20°, 40°), (10°, 40°), (10°, -90°)]`
+   - When active spacecraft crosses into SAA, triggers real-time `SAA_RADIATION_SPIKE` alert banner.
+   - Injects transient physical noise directly into active telemetry streams:
+     - **EPS Bus Voltage:** -0.15 V to -0.45 V transient voltage drop (proton drag).
+     - **Core Thermal:** +0.8 °C to +2.4 °C thermal spike (radiative heating).
+   - Automatically predicts next entry/egress timestamps.
+
+5. **REST & Full-Duplex WebSocket Integration:**
+   - `GET /api/v1/orbital/current-state`: Instantaneous geodetic coordinates, velocity, altitude, and subsolar position.
+   - `GET /api/v1/orbital/ground-track`: Array of 180+ track nodes across ±45 minute window.
+   - `GET /api/v1/orbital/dsn-passes`: Real-time line-of-sight status and elevation angles for DSN stations.
+   - `GET /api/v1/orbital/saa-status`: SAA polygon intersection test with predicted entry/exit times.
+   - Enhanced `/ws/telemetry` pushes live `orbital_state` alongside every 1.2s telemetry tick.
+
+---
+
 ## 5. The Complete User Journey (Step-by-Step)
 
 **STEP 1 — Landing & Shader Experience**
@@ -826,7 +872,7 @@ A standout feature of ASTRA is its **Dual-View Print Engine** built for official
 
 ---
 
-## 13. All 11 Pages and Modals Explained
+## 13. All 12 Pages and Modals Explained
 
 ### Page 1: Welcome Page (`WelcomePage.jsx`)
 The immersive operational threshold of ASTRA.
@@ -849,6 +895,15 @@ Enterprise multi-spacecraft orbital constellation command deck.
 - **Aggregated Fleet Status Bar:** Real-time metrics summarizing active nodes (3/3), total channels monitored (246 sensors), average fleet health (95.0%), and network synchronization.
 - **Ground Focus Switcher:** One-click card action to switch ground station monitoring focus to any satellite in the fleet without tearing down WebSocket connections.
 - **Fleet JSON Export:** One-click automated export of cryptographic constellation telemetry and link topology state.
+
+### Page 4: Orbital Mechanics & Ground Track (`OrbitalMechanicsPage.jsx`)
+Real-time satellite trajectory propagation and world ground track control console.
+- **Interactive Leaflet World Map (CartoDB Dark Matter):** Dark-themed global canvas displaying current spacecraft position with an animated pulsating satellite icon.
+- **Past & Projected Ground Track Polylines:** Real-time 90-minute orbital track showing past trajectory (-45m, solid amber `#fea619`) and projected trajectory (+45m, dashed slate `#94a3b8`).
+- **South Atlantic Anomaly (SAA) Bounding Overlay:** Translucent red warning polygon marking the geomagnetic anomaly hazard zone with pulsating alert banners upon entry.
+- **DSN Ground Station Radii & Horizon Masks:** Live contact rings for Goldstone (USA), Madrid (Spain), and Canberra (Australia) showing line-of-sight elevation angles (> 10° threshold) and calculated AOS/LOS acquisition windows.
+- **Real-Time Geodetic Cards:** Live digital telemetry cards for Sub-Satellite Latitude, Longitude, Altitude (km), and Orbital Velocity (km/s).
+- **Subsolar Point Indicator:** Dynamic calculation of the Sun's declination and hour angle for daylight terminator boundary tracking.
 
 ### Page 4: Live Telemetry Console (`LiveTelemetryPage.jsx`)
 The deep-inspection engineering workstation.
@@ -1028,6 +1083,7 @@ d:\Competition\Hackspire\
 │       │   ├── WelcomePage.jsx          Animated landing page with WebGL shader
 │       │   ├── MissionOverviewPage.jsx  Executive dashboard and health matrix
 │       │   ├── FleetOverviewPage.jsx    Constellation fleet & ISL mesh topology deck
+│       │   ├── OrbitalMechanicsPage.jsx Real-time SGP4 ground track map & DSN visibility
 │       │   ├── LiveTelemetryPage.jsx    Real-time telemetry and 82-channel charts
 │       │   ├── AnomalyCenterPage.jsx    Incident queue and Gemini reasoning analysis
 │       │   ├── SubsystemsPage.jsx       Detailed subsystem engineering monitors
@@ -1103,7 +1159,7 @@ d:\Competition\Hackspire\
 | **Telemetry Ingestion Rate** | **1.2 Seconds** | Real-time full-duplex WebSocket tick rate |
 | **AI Model Fallback Cascade** | **15+ Models** | High resilience against cloud rate limits and outages |
 | **Fallback Reasoner Latency** | **< 5 Milliseconds** | Deterministic local safety net guaranteeing uptime |
-| **Frontend Page Architecture** | **11 Pages + 1 Modal** | Full mission control platform navigation deck |
+| **Frontend Page Architecture** | **12 Pages + 1 Modal** | Full mission control platform navigation deck |
 | **Dual-View Output Modes** | **2 Views** | Interactive Swiss Brutalist Web UI vs NASA Print Whitepaper |
 | **Relational Database Tables** | **6 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`) |
 | **Human Approval Enforcement** | **100% Immutable** | Hardcoded at AI prompt, schema, backend, and UI layers |
@@ -1127,6 +1183,7 @@ ASTRA represents a major leap forward in modern spacecraft mission control softw
 7. **Dual-View Flight Audit & NASA Debrief:** Automatically generates publication-grade NASA Technical Documents on pure white A4 paper with official sign-offs by Gene Kranz and Dr. Eleanor Arroway.
 8. **Crash-Resilient Database Persistence:** Guarantees permanent audit and telemetry history across server restarts via SQLite WAL mode (6 tables) and disk-backed JSON storage.
 9. **Immutable Human-in-the-Loop Safety:** Strictly enforces operator clearance and manual authorization at every architectural layer.
+10. **Real-Time Orbital Propagator & Ground Track Engine:** Propagates genuine spaceflight orbits via python `sgp4` and hourly CelesTrak TLE streams with DSN line-of-sight tracking and South Atlantic Anomaly (SAA) telemetry injection.
 
 ---
 
