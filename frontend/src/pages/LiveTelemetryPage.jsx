@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useMission } from '../context/MissionContext';
 import { TelemetryMetricCard } from '../components/TelemetryMetricCard';
 import { SynchronizedWaveformChart } from '../components/SynchronizedWaveformChart';
+import { RunwayAlarmBanner } from '../components/RunwayAlarmBanner';
 import {
   Activity,
   Clock,
@@ -24,6 +25,8 @@ export const LiveTelemetryPage = () => {
     resetToNominal,
     playNasaP3Stream,
     isBackendConnected,
+    runwayAlarms,
+    forecastChannels,
   } = useMission();
   const [selectedChannel, setSelectedChannel] = useState('p3');
 
@@ -84,6 +87,9 @@ export const LiveTelemetryPage = () => {
           )}
         </div>
       </div>
+
+      {/* Runway Alarm Banner */}
+      <RunwayAlarmBanner alarms={runwayAlarms} />
 
       {/* 2. Top 5 Metric KPI Cards (including P-3 Detector Channel) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -192,6 +198,7 @@ export const LiveTelemetryPage = () => {
       <SynchronizedWaveformChart
         history={telemetryHistory}
         isCrisis={isCrisis}
+        forecastChannels={forecastChannels}
       />
     </div>
   );

@@ -6,6 +6,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services.telemetry_service import telemetry_service
 from app.services.orbital_service import orbital_service
+from app.services.forecasting_service import forecasting_service
 from app.storage.event_store import event_store
 
 logger = logging.getLogger("astra.websocket")
@@ -108,7 +109,7 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
             except json.JSONDecodeError:
                 pass
 
-            # Push telemetry tick with real-time SGP4 orbital positioning
+            # Push telemetry tick with real-time SGP4 orbital positioning + forecasting
             tick = telemetry_service.generate_next_tick()
             orbital_state = await orbital_service.get_current_state(telemetry_service.active_spacecraft)
             
@@ -119,16 +120,53 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
                 tick["voltage"] = round(tick.get("voltage", 24.0) + saa_perturbations["voltage_delta"], 2)
                 tick["saa_active"] = True
 
+            # Ingest live tick into the rolling forecasting buffer
+            active_sc = telemetry_service.active_spacecraft
+            forecasting_service.ingest_tick(active_sc, tick)
+
+            # Get lightweight forecast summary (projected points + runway alarms)
+            fc_summary = forecasting_service.get_forecast_summary(active_sc)
+            active_alarms = fc_summary.get("active_alarms", [])
+
+            # Emit PREDICTIVE_WARNING audit entries for any newly breaching channels
+            for alarm in active_alarms:
+                alarm_key = f"{active_sc}:{alarm['channel']}"
+                ttb = alarm["time_to_breach_sec"]
+                ch_label = alarm["channel"].upper()
+                event_store.add_audit_entry(
+                    type_="PREDICTIVE_WARNING",
+                    subsystem=f"FORECAST ({ch_label})",
+                    event=(
+                        f"RUNWAY ALARM: {ch_label} projected to breach "
+                        f"{alarm['threshold_value']}{alarm['unit']} threshold in "
+                        f"{int(ttb // 60)}m {int(ttb % 60)}s "
+                        f"(slope: {alarm['slope_per_sec']:+.4f}/s, severity: {alarm['severity']})"
+                    )
+                )
+
             events = event_store.list_events()
             
             await websocket.send_text(json.dumps({
                 "type": "TELEMETRY_TICK",
                 "telemetry": tick,
                 "orbital_state": orbital_state,
-                "spacecraft_id": telemetry_service.active_spacecraft,
+                "spacecraft_id": active_sc,
                 "fleet_summary": telemetry_service.get_fleet_summary(),
                 "active_events_count": len([e for e in events if e.status in ["ANOMALY_DETECTED", "UNDER_REVIEW"]]),
-                "latest_event": events[0].model_dump() if events else None
+                "latest_event": events[0].model_dump() if events else None,
+                "forecast": {
+                    "active_alarms": active_alarms,
+                    "channels": {
+                        ch: {
+                            "slope_per_sec": fc_summary["channels"][ch]["slope_per_sec"],
+                            "current_value": fc_summary["channels"][ch]["current_value"],
+                            "projected": fc_summary["channels"][ch]["projected"][:30],
+                            "runway": fc_summary["channels"][ch]["runway"],
+                            "window_size": fc_summary["channels"][ch]["window_size"],
+                        }
+                        for ch in fc_summary["channels"]
+                    }
+                }
             }))
 
             await asyncio.sleep(1.2)  # Tick interval

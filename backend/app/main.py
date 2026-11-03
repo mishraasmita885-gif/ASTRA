@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import telemetry, events, websocket, fleet, orbital
+from app.routers import telemetry, events, websocket, fleet, orbital, forecasting
 from app.services.telemetry_service import telemetry_service
 from app.services.orbital_service import orbital_service
 
@@ -67,6 +67,7 @@ app.include_router(events.router, prefix=settings.API_V1_STR, tags=["Anomaly Eve
 app.include_router(fleet.router, prefix=f"{settings.API_V1_STR}/fleet", tags=["Constellation Fleet & ISL Mesh"])
 app.include_router(orbital.router, prefix=f"{settings.API_V1_STR}/orbital", tags=["Orbital Mechanics & SGP4 Engine"])
 app.include_router(websocket.router, tags=["Real-time Stream"])
+app.include_router(forecasting.router, prefix=f"{settings.API_V1_STR}/forecasting", tags=["Predictive Forecasting Engine"])
 
 
 @app.get("/")

@@ -24,6 +24,7 @@ import {
 export const SynchronizedWaveformChart = ({
   history = [],
   isCrisis = false,
+  forecastChannels = {},
 }) => {
   // Channel visibility toggles
   const [channels, setChannels] = useState({
@@ -141,6 +142,52 @@ export const SynchronizedWaveformChart = ({
 
     return res;
   }, [activeData]);
+
+  // Pre-calculate dashed predictive trajectory paths for each channel
+  const forecastPaths = useMemo(() => {
+    const total = activeData.length;
+    if (total < 2) return {};
+
+    // Channel key mapping: chart key -> forecast service key
+    const keyMap = {
+      temp:    'temperature',
+      voltage: 'voltage',
+      battery: 'battery',
+      solar:   'solar',
+      p3:      'p3',
+    };
+
+    const res = {};
+    Object.entries(keyMap).forEach(([chartKey, fcKey]) => {
+      const fcData = forecastChannels[fcKey];
+      if (!fcData || !fcData.projected || fcData.projected.length === 0) return;
+
+      const projected = fcData.projected;
+      // Current (last) X position = rightmost historical point
+      const lastHistX = getX(total - 1, total);
+      // Each future step extends one "step width" beyond
+      const stepWidth = total > 1 ? (plotWidth / (total - 1)) : 10;
+
+      // Start from current_value at lastHistX
+      const startVal = fcData.current_value;
+      const fcPoints = [{ x: lastHistX, y: getY(startVal, chartKey) }];
+
+      projected.forEach((p, i) => {
+        const x = lastHistX + stepWidth * (i + 1);
+        const y = getY(p.value, chartKey);
+        fcPoints.push({ x, y });
+      });
+
+      // Only include points within SVG bounds
+      const clippedPoints = fcPoints.filter(p => p.x <= paddingLeft + plotWidth + stepWidth * 5);
+
+      if (clippedPoints.length >= 2) {
+        res[chartKey] = { pts: clippedPoints, lineD: buildSmoothPath(clippedPoints) };
+      }
+    });
+
+    return res;
+  }, [activeData, forecastChannels]);
 
   // Handle Mouse Move for Interactive Scrubber Crosshair
   const handleMouseMove = (e) => {
@@ -371,6 +418,13 @@ export const SynchronizedWaveformChart = ({
             <span>Channel P-3</span>
           </button>
         </div>
+
+        {Object.keys(forecastChannels).length > 0 && (
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-[#64748b]">
+            <svg width="20" height="10"><line x1="0" y1="5" x2="20" y2="5" stroke="#fea619" strokeWidth="1.5" strokeDasharray="4 3"/></svg>
+            <span>Forecast (30-step)</span>
+          </div>
+        )}
 
         {/* View mode & Fullscreen Controls on Right */}
         <div className="flex items-center gap-3">
@@ -735,6 +789,58 @@ export const SynchronizedWaveformChart = ({
                 strokeLinecap="round"
               />
             </g>
+          )}
+
+          {/* Dashed Predictive Trajectory Lines */}
+          {channels.temp && forecastPaths.temp && (
+            <path
+              d={forecastPaths.temp.lineD}
+              stroke="#ef4444"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              strokeOpacity={0.65}
+              fill="none"
+            />
+          )}
+          {channels.voltage && forecastPaths.voltage && (
+            <path
+              d={forecastPaths.voltage.lineD}
+              stroke="#fea619"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              strokeOpacity={0.65}
+              fill="none"
+            />
+          )}
+          {channels.battery && forecastPaths.battery && (
+            <path
+              d={forecastPaths.battery.lineD}
+              stroke="#22c55e"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              strokeOpacity={0.65}
+              fill="none"
+            />
+          )}
+          {channels.solar && forecastPaths.solar && (
+            <path
+              d={forecastPaths.solar.lineD}
+              stroke="#a855f7"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              strokeOpacity={0.65}
+              fill="none"
+            />
+          )}
+          {channels.p3 && forecastPaths.p3 && (
+            <path
+              d={forecastPaths.p3.lineD}
+              stroke="#0ea5e9"
+              strokeWidth={1.5}
+              strokeDasharray="5 4"
+              strokeOpacity={0.65}
+              fill="none"
+            />
           )}
 
           {/* --- INTERACTIVE SCRUBBER CROSSHAIR & INTERSECTION DOTS --- */}

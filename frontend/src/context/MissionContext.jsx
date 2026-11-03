@@ -239,6 +239,10 @@ export const MissionProvider = ({ children }) => {
   const [backendHealth, setBackendHealth] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
+  // Predictive Forecasting & Runway Alarm State
+  const [forecastChannels, setForecastChannels] = useState({});
+  const [runwayAlarms, setRunwayAlarms] = useState([]);
+
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
 
@@ -425,6 +429,16 @@ export const MissionProvider = ({ children }) => {
               }
               if (data.fleet_summary || tel.fleet_summary) {
                 setFleetSummary(data.fleet_summary || tel.fleet_summary);
+              }
+
+              // Parse predictive forecasting data from WebSocket tick
+              if (data.forecast) {
+                if (data.forecast.channels) {
+                  setForecastChannels(data.forecast.channels);
+                }
+                if (data.forecast.active_alarms) {
+                  setRunwayAlarms(data.forecast.active_alarms);
+                }
               }
 
               const nowTime = new Date().toLocaleTimeString();
@@ -961,6 +975,8 @@ export const MissionProvider = ({ children }) => {
         backendHealth,
         isAnalyzing,
         triggerGeminiAnalysis,
+        forecastChannels,
+        runwayAlarms,
         syncWithBackend,
         // Multi-Channel Telemetry Matrix
         availableChannels,
