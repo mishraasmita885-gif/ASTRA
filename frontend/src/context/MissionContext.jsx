@@ -107,8 +107,7 @@ export const MissionProvider = ({ children }) => {
     { id: 3, source_sat: 'ASTRA-GAMMA', target_sat: 'ASTRA-ALPHA', latency_ms: 28.6, packet_loss_pct: 0.02, snr_db: 14.9, status: 'NOMINAL', throughput_mbps: 105.0, band: 'Ka-Band Crosslink' }
   ]);
 
-  const [fleetSummary,
-        orbitalState, setFleetSummary] = useState({
+  const [fleetSummary, setFleetSummary] = useState({
     total_spacecraft: 3,
     active_spacecraft: 'ASTRA-ALPHA',
     status: 'NOMINAL',
@@ -973,6 +972,7 @@ export const MissionProvider = ({ children }) => {
         fleetNodes,
         islLinks,
         fleetSummary,
+        orbitalState,
         // RBAC & Settings
         operatorRole,
         setOperatorRole,

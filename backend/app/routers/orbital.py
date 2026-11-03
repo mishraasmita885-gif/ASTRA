@@ -51,3 +51,4 @@ async def get_saa_status(spacecraft_id: str = Query(default="ASTRA-ALPHA")):
     South Atlantic Anomaly (SAA) bounding polygon.
     """
     return await orbital_service.get_saa_status(spacecraft_id)
+
