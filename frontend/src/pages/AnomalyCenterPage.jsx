@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMission } from '../context/MissionContext';
 import { AnomalyWaveformChart } from '../components/AnomalyWaveformChart';
+import { RunwayAlarmBanner } from '../components/RunwayAlarmBanner';
 import { fetchMetrics } from '../services/api';
 import {
   ShieldAlert,
@@ -32,6 +33,7 @@ export const AnomalyCenterPage = () => {
     isCrisis,
     isAnalyzing,
     triggerGeminiAnalysis,
+    runwayAlarms,
   } = useMission();
 
   const [activeTab, setActiveTab] = useState('inspector'); // 'inspector' | 'benchmarks'
@@ -138,6 +140,9 @@ export const AnomalyCenterPage = () => {
           </button>
         </div>
       </div>
+
+      {/* Predictive Runway Horizon Alarm Banner */}
+      <RunwayAlarmBanner alarms={runwayAlarms} />
 
       {activeTab === 'benchmarks' ? (
         /* BENCHMARK COMPARISON VIEW (Mandated by TL Handoff Section 4) */

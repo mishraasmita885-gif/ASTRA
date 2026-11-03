@@ -1,7 +1,8 @@
 import asyncio
 import json
 import logging
-from typing import Set
+import time
+from typing import Set, Dict
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.services.telemetry_service import telemetry_service
@@ -41,6 +42,7 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+_last_alarm_logged: Dict[str, float] = {}
 
 
 @router.websocket("/ws/telemetry")
@@ -128,21 +130,24 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
             fc_summary = forecasting_service.get_forecast_summary(active_sc)
             active_alarms = fc_summary.get("active_alarms", [])
 
-            # Emit PREDICTIVE_WARNING audit entries for any newly breaching channels
+            # Emit PREDICTIVE_WARNING audit entries (throttled to max 1 per 60s per channel to prevent log flood)
+            now_epoch = time.time()
             for alarm in active_alarms:
                 alarm_key = f"{active_sc}:{alarm['channel']}"
-                ttb = alarm["time_to_breach_sec"]
-                ch_label = alarm["channel"].upper()
-                event_store.add_audit_entry(
-                    type_="PREDICTIVE_WARNING",
-                    subsystem=f"FORECAST ({ch_label})",
-                    event=(
-                        f"RUNWAY ALARM: {ch_label} projected to breach "
-                        f"{alarm['threshold_value']}{alarm['unit']} threshold in "
-                        f"{int(ttb // 60)}m {int(ttb % 60)}s "
-                        f"(slope: {alarm['slope_per_sec']:+.4f}/s, severity: {alarm['severity']})"
+                if now_epoch - _last_alarm_logged.get(alarm_key, 0.0) >= 60.0:
+                    _last_alarm_logged[alarm_key] = now_epoch
+                    ttb = alarm["time_to_breach_sec"]
+                    ch_label = alarm["channel"].upper()
+                    event_store.add_audit_entry(
+                        type_="PREDICTIVE_WARNING",
+                        subsystem=f"FORECAST ({ch_label})",
+                        event=(
+                            f"RUNWAY ALARM: {ch_label} projected to breach "
+                            f"{alarm['threshold_value']}{alarm['unit']} threshold in "
+                            f"{int(ttb // 60)}m {int(ttb % 60)}s "
+                            f"(slope: {alarm['slope_per_sec']:+.4f}/s, severity: {alarm['severity']})"
+                        )
                     )
-                )
 
             events = event_store.list_events()
             

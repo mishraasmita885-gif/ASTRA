@@ -103,9 +103,18 @@ export const SynchronizedWaveformChart = ({
   };
 
   // Convert index to X pixel
+  // Dynamically allocate 25% of chart domain to predictive horizon when forecasting is active
+  const hasForecast = Boolean(
+    forecastChannels &&
+    Object.values(forecastChannels).some((fc) => fc?.projected?.length > 0)
+  );
+  const forecastWidth = hasForecast ? Math.round(plotWidth * 0.25) : 0;
+  const historyWidth = plotWidth - forecastWidth;
+  const nowX = paddingLeft + historyWidth;
+
   const getX = (idx, total) => {
     if (total <= 1) return paddingLeft;
-    return paddingLeft + (idx / (total - 1)) * plotWidth;
+    return paddingLeft + (idx / (total - 1)) * historyWidth;
   };
 
   // Helper to build smooth cubic Bezier path
@@ -164,22 +173,22 @@ export const SynchronizedWaveformChart = ({
 
       const projected = fcData.projected;
       // Current (last) X position = rightmost historical point
-      const lastHistX = getX(total - 1, total);
+      const lastHistX = nowX;
       // Each future step extends one "step width" beyond
-      const stepWidth = total > 1 ? (plotWidth / (total - 1)) : 10;
+      const projSlice = projected.slice(0, 20);
 
       // Start from current_value at lastHistX
       const startVal = fcData.current_value;
       const fcPoints = [{ x: lastHistX, y: getY(startVal, chartKey) }];
 
-      projected.forEach((p, i) => {
-        const x = lastHistX + stepWidth * (i + 1);
+      projSlice.forEach((p, i) => {
+        const x = nowX + ((i + 1) / projSlice.length) * forecastWidth;
         const y = getY(p.value, chartKey);
         fcPoints.push({ x, y });
       });
 
       // Only include points within SVG bounds
-      const clippedPoints = fcPoints.filter(p => p.x <= paddingLeft + plotWidth + stepWidth * 5);
+      const clippedPoints = fcPoints.filter(p => p.x <= paddingLeft + plotWidth + 4);
 
       if (clippedPoints.length >= 2) {
         res[chartKey] = { pts: clippedPoints, lineD: buildSmoothPath(clippedPoints) };
@@ -187,7 +196,7 @@ export const SynchronizedWaveformChart = ({
     });
 
     return res;
-  }, [activeData, forecastChannels]);
+  }, [activeData, forecastChannels, hasForecast, forecastWidth, nowX]);
 
   // Handle Mouse Move for Interactive Scrubber Crosshair
   const handleMouseMove = (e) => {
@@ -202,7 +211,8 @@ export const SynchronizedWaveformChart = ({
     }
 
     // Find closest index
-    const ratio = (mouseX - paddingLeft) / plotWidth;
+    const clampedMouseX = Math.min(nowX, Math.max(paddingLeft, mouseX));
+    const ratio = (clampedMouseX - paddingLeft) / Math.max(1, historyWidth);
     const idx = Math.min(
       activeData.length - 1,
       Math.max(0, Math.round(ratio * (activeData.length - 1)))
@@ -493,6 +503,38 @@ export const SynchronizedWaveformChart = ({
               />
             );
           })}
+
+          {/* Predictive Horizon Shading & T-0 Divider Line */}
+          {hasForecast && (
+            <g className="select-none pointer-events-none">
+              <rect
+                x={nowX}
+                y={paddingTop}
+                width={forecastWidth}
+                height={plotHeight}
+                fill="#fea619"
+                fillOpacity="0.04"
+              />
+              <line
+                x1={nowX}
+                y1={paddingTop}
+                x2={nowX}
+                y2={paddingTop + plotHeight}
+                stroke="#fea619"
+                strokeDasharray="4 4"
+                strokeWidth="1.5"
+                strokeOpacity="0.75"
+              />
+              <text
+                x={nowX + 6}
+                y={paddingTop + 14}
+                fill="#b45309"
+                className="font-mono text-[9px] font-bold tracking-wider"
+              >
+                HORIZON (+25s) ➔
+              </text>
+            </g>
+          )}
 
           {/* --- LEFT Y-AXIS: TEMPERATURE (°C) in RED --- */}
           {channels.temp && (
@@ -905,24 +947,65 @@ export const SynchronizedWaveformChart = ({
               stroke="#e2e8f0"
               strokeWidth="1"
             />
-            {['-30s', '-25s', '-20s', '-15s', '-10s', '-5s'].map((label, idx) => {
-              const x = paddingLeft + (idx / 6) * plotWidth;
-              return (
-                <text key={label} x={x} y={paddingTop + plotHeight + 18} textAnchor="middle">
-                  {label}
+            {hasForecast ? (
+              <>
+                {['-30s', '-20s', '-10s'].map((label, idx) => {
+                  const x = paddingLeft + (idx / 3) * historyWidth;
+                  return (
+                    <text key={label} x={x} y={paddingTop + plotHeight + 18} textAnchor="middle">
+                      {label}
+                    </text>
+                  );
+                })}
+                <text
+                  x={nowX}
+                  y={paddingTop + plotHeight + 18}
+                  textAnchor="middle"
+                  fill="#ef4444"
+                  className="font-bold"
+                >
+                  T-0 <tspan fill="#161514">Live</tspan>
                 </text>
-              );
-            })}
-            {/* T-0 Live Marker in bold red text */}
-            <text
-              x={paddingLeft + plotWidth}
-              y={paddingTop + plotHeight + 18}
-              textAnchor="end"
-              fill="#ef4444"
-              className="font-bold"
-            >
-              T-0 <tspan fill="#161514">Live</tspan>
-            </text>
+                <text
+                  x={nowX + forecastWidth * 0.5}
+                  y={paddingTop + plotHeight + 18}
+                  textAnchor="middle"
+                  fill="#d97706"
+                  className="font-bold"
+                >
+                  +12s
+                </text>
+                <text
+                  x={paddingLeft + plotWidth}
+                  y={paddingTop + plotHeight + 18}
+                  textAnchor="end"
+                  fill="#d97706"
+                  className="font-bold"
+                >
+                  +25s (Proj)
+                </text>
+              </>
+            ) : (
+              <>
+                {['-30s', '-25s', '-20s', '-15s', '-10s', '-5s'].map((label, idx) => {
+                  const x = paddingLeft + (idx / 6) * plotWidth;
+                  return (
+                    <text key={label} x={x} y={paddingTop + plotHeight + 18} textAnchor="middle">
+                      {label}
+                    </text>
+                  );
+                })}
+                <text
+                  x={paddingLeft + plotWidth}
+                  y={paddingTop + plotHeight + 18}
+                  textAnchor="end"
+                  fill="#ef4444"
+                  className="font-bold"
+                >
+                  T-0 <tspan fill="#161514">Live</tspan>
+                </text>
+              </>
+            )}
           </g>
         </svg>
 
