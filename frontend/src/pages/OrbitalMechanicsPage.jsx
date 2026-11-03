@@ -160,7 +160,7 @@ export const OrbitalMechanicsPage = () => {
   const isInSAA = saaStatus?.inside || orbitalState?.saa_inside || telemetry?.saa_active || false;
 
   return (
-    <div className="p-6 space-y-6 bg-[#f7f4ee] min-h-screen font-mono">
+    <div className="flex flex-col gap-6 w-full max-w-7xl mx-auto pb-12 font-mono">
       {/* Top Banner / Header */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
@@ -285,7 +285,7 @@ export const OrbitalMechanicsPage = () => {
               </span>
             </div>
             <span className="font-mono text-[9px] text-[#73533e] font-bold">
-              CartoDB Dark Matter · ±45 Min Window
+              Esri Dark Canvas · ±45 Min Window
             </span>
           </div>
 
@@ -299,10 +299,9 @@ export const OrbitalMechanicsPage = () => {
               worldCopyJump={true}
             >
               <TileLayer
-                url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>'
-                subdomains="abcd"
-                maxZoom={19}
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}"
+                attribution='Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
+                maxZoom={16}
               />
 
               {/* South Atlantic Anomaly (SAA) Bounding Polygon */}
