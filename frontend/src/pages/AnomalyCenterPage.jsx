@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useMission } from '../context/MissionContext';
 import { AnomalyWaveformChart } from '../components/AnomalyWaveformChart';
 import { RunwayAlarmBanner } from '../components/RunwayAlarmBanner';
+import { FaultTreeGraph } from '../components/FaultTreeGraph';
+import { NodeInspectionModal } from '../components/NodeInspectionModal';
 import { fetchMetrics } from '../services/api';
 import {
   ShieldAlert,
@@ -34,9 +36,11 @@ export const AnomalyCenterPage = () => {
     isAnalyzing,
     triggerGeminiAnalysis,
     runwayAlarms,
+    faultTreeGraph,
   } = useMission();
 
-  const [activeTab, setActiveTab] = useState('inspector'); // 'inspector' | 'benchmarks'
+  const [activeTab, setActiveTab] = useState('inspector'); // 'inspector' | 'fault-tree' | 'benchmarks'
+  const [selectedInspectionNode, setSelectedInspectionNode] = useState(null); // 'inspector' | 'benchmarks'
   const [metrics, setMetrics] = useState({
     nasa_68_channel_benchmark: {
       channels_evaluated: 68,
@@ -121,6 +125,16 @@ export const AnomalyCenterPage = () => {
               Incident Inspector
             </button>
             <button
+              onClick={() => setActiveTab('fault-tree')}
+              className={`segmented-btn px-3.5 py-1 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'fault-tree'
+                  ? 'bg-[#452a19] text-[#fbf7f0]'
+                  : 'text-[#5c4a3d] hover:text-[#24140b] bg-transparent'
+              }`}
+            >
+              Fault Tree & Cascades
+            </button>
+            <button
               onClick={() => setActiveTab('benchmarks')}
               className={`segmented-btn px-3.5 py-1 rounded-full font-mono text-xs font-bold transition-all cursor-pointer ${
                 activeTab === 'benchmarks'
@@ -144,7 +158,39 @@ export const AnomalyCenterPage = () => {
       {/* Predictive Runway Horizon Alarm Banner */}
       <RunwayAlarmBanner alarms={runwayAlarms} />
 
-      {activeTab === 'benchmarks' ? (
+      {activeTab === 'fault-tree' ? (
+        <div className="flex flex-col gap-5">
+          <div className="rounded-2xl p-6 bg-white border border-[#452a19] shadow-[3px_3px_0_#452a19] flex flex-col gap-4">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div>
+                <h2 className="font-display font-bold text-xl text-[#161514] flex items-center gap-2">
+                  Fault Tree Analysis (FTA) & Cascading Failure Propagation Graph
+                </h2>
+                <p className="text-xs font-mono text-[#736f68] mt-1">
+                  Real-time dependency chain mapped dynamically from active telemetry thresholds and SQLite anomaly triggers.
+                </p>
+              </div>
+              <div className="text-xs font-mono px-3 py-1 bg-[#ebdccb] border border-[#452a19] text-[#452a19] font-bold shadow-[1px_1px_0_#452a19]">
+                CLICK ANY NODE TO INSPECT LIVE SENSORS
+              </div>
+            </div>
+
+            <FaultTreeGraph
+              nodes={faultTreeGraph?.nodes || []}
+              edges={faultTreeGraph?.edges || []}
+              summary={faultTreeGraph?.summary || {}}
+              onNodeClick={(node) => setSelectedInspectionNode(node)}
+            />
+          </div>
+
+          {selectedInspectionNode && (
+            <NodeInspectionModal
+              node={selectedInspectionNode}
+              onClose={() => setSelectedInspectionNode(null)}
+            />
+          )}
+        </div>
+      ) : activeTab === 'benchmarks' ? (
         /* BENCHMARK COMPARISON VIEW (Mandated by TL Handoff Section 4) */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* P-3 Demonstration Results */}

@@ -111,6 +111,17 @@ export const CommandPaletteModal = ({ isOpen, onClose }) => {
         },
       },
       {
+        id: 'nav-fault-tree',
+        category: 'NAVIGATION',
+        title: 'Fault Tree Analysis (FTA) & Cascading Failure Graph',
+        subtitle: 'Dynamic subsystem dependency propagation tree and live sensor inspection',
+        icon: Layers,
+        action: () => {
+          setActiveTab('anomalies');
+          onClose();
+        },
+      },
+      {
         id: 'nav-anomalies',
         category: 'NAVIGATION',
         title: 'Anomaly Center & ML Evaluation',

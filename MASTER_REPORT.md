@@ -506,6 +506,35 @@ This means ASTRA **never fails** to produce a diagnosis.
 
 ---
 
+### Feature 21: Interactive Fault Tree Analysis (FTA) & Cascading Failure Graph
+**What it is:** A real-time, interactive, node-based **Fault Tree Analysis (FTA) & Cascading Failure Propagation Graph** embedded directly inside ASTRA's **Anomaly Center** (`AnomalyCenterPage.jsx`). This engine dynamically computes and visualizes how a spacecraft subsystem anomaly (such as a solar array strike, battery thermal runaway, or bus undervoltage) cascades downstream through dependent spacecraft subsystems (e.g., Solar Array Output → Power Bus Voltage → Battery SoC / Reaction Wheel Desaturation / TCS Radiator → Safe-Mode Controller Triggered).
+
+**CRITICAL ARCHITECTURAL GUARANTEE:** ZERO HARDCODED VALUES OR STATIC MOCK GRAPHS. All nodes, dependency edges, propagation states, live values, and telemetry inspection drawers are dynamically computed in real time from active anomalies stored in SQLite (`astra.db`) and live telemetry streaming via WebSocket.
+
+**Key Technical Capabilities:**
+1. **Dynamic Cascading Failure Engine (`backend/app/services/fta_service.py`):**
+   - Subsystem dependency topology spanning 4 architectural layers:
+     - **Layer 0 (Sources):** Solar Array Primary (`node-solar` [EPS]), Thermal Core Bus (`node-thermal-core` [TCS]).
+     - **Layer 1 (Distribution):** Power Bus Voltage (`node-bus-voltage` [EPS]).
+     - **Layer 2 (Subsystems):** Battery SoC (`node-battery` [EPS]), Reaction Wheel / ADCS (`node-adcs` [ADCS]), TCS Radiator Loop (`node-tcs-radiator` [TCS]), TT&C Transponder (`node-ttc` [TT&C]).
+     - **Layer 3 (Autonomy & Safe-Mode):** Avionics / OBC (`node-avionics` [AVIONICS]), Safe-Mode Controller (`node-safe-mode` [AVIONICS]).
+   - **Dynamic Status Evaluation & Failure Propagation:**
+     - Computes real-time node health by evaluating live sensor values against calibrated engineering thresholds (critical high/low, warning high/low).
+     - Traverses dependency graph in topological order ($L0 \rightarrow L1 \rightarrow L2 \rightarrow L3$): when an upstream node enters `CRITICAL` state, downstream dependent nodes automatically transition to `PROPAGATING` cascading failure status.
+2. **REST & WebSocket Telemetry Integration (`backend/app/routers/fta.py` & `websocket.py`):**
+   - `GET /api/v1/fault-tree/active-cascade?spacecraft_id=ASTRA-ALPHA`: Returns real-time JSON topology, active failure paths, dynamic sensor readings, and system-wide summary counts.
+   - Enhanced `/ws/telemetry`: Every 1.2s tick computes the active cascade graph and pushes a structured `fault_tree` block to all connected ground control consoles.
+3. **Interactive High-Performance SVG Graph (`FaultTreeGraph.jsx`):**
+   - Pure SVG layout engine with zero external canvas dependencies, optimized for 60 FPS rendering.
+   - Dynamic Swiss Neo-Brutalist styling tokens: Crimson pulsing (`#ef4444` / `#3b0000`) for `CRITICAL`, Amber glowing (`#fea619` / `#451a03`) for `PROPAGATING`, and Dark Cream (`#ebdccb` / `#452a19`) for `NOMINAL`.
+   - Dynamic animated SVG flow particles tracing the exact downstream vector of failure propagation along active edges.
+4. **Interactive Telemetry Inspection Drawer (`NodeInspectionModal.jsx`):**
+   - Slide-over drawer opening upon clicking any graph node.
+   - Displays real-time sensor value, engineering threshold boundaries, layer specs, and related active anomalies.
+   - Direct integration with Gemini AI diagnostic reasoning and staged command uplink authorization.
+
+---
+
 ## 5. The Complete User Journey (Step-by-Step)
 
 **STEP 1 — Landing & Shader Experience**

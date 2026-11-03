@@ -8,6 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.services.telemetry_service import telemetry_service
 from app.services.orbital_service import orbital_service
 from app.services.forecasting_service import forecasting_service
+from app.services.fta_service import fta_service
 from app.storage.event_store import event_store
 
 logger = logging.getLogger("astra.websocket")
@@ -150,7 +151,14 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
                     )
 
             events = event_store.list_events()
-            
+
+            # Build live fault tree cascade graph
+            fault_tree = fta_service.build_cascade(
+                spacecraft_id=active_sc,
+                telemetry=tick,
+                active_events=events,
+            )
+
             await websocket.send_text(json.dumps({
                 "type": "TELEMETRY_TICK",
                 "telemetry": tick,
@@ -171,7 +179,12 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
                         }
                         for ch in fc_summary["channels"]
                     }
-                }
+                },
+                "fault_tree": {
+                    "nodes": fault_tree["nodes"],
+                    "edges": fault_tree["edges"],
+                    "summary": fault_tree["summary"],
+                },
             }))
 
             await asyncio.sleep(1.2)  # Tick interval

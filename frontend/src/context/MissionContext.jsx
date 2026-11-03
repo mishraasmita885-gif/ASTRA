@@ -18,6 +18,7 @@ import {
   fetchFleetStatus,
   fetchIslTopology,
   switchFleetSpacecraft,
+  fetchFaultTreeCascade,
 } from '../services/api';
 
 const MissionContext = createContext(null);
@@ -241,7 +242,9 @@ export const MissionProvider = ({ children }) => {
 
   // Predictive Forecasting & Runway Alarm State
   const [forecastChannels, setForecastChannels] = useState({});
-  const [runwayAlarms, setRunwayAlarms] = useState([]);
+  const [runwayAlarms,
+        faultTreeGraph, setRunwayAlarms] = useState([]);
+  const [faultTreeGraph, setFaultTreeGraph] = useState({ nodes: [], edges: [], summary: {} });
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
@@ -374,6 +377,11 @@ export const MissionProvider = ({ children }) => {
           if (fleetData.nodes) setFleetNodes(fleetData.nodes);
           if (fleetData.isl_mesh) setIslLinks(fleetData.isl_mesh);
         }
+
+        const ftaData = await fetchFaultTreeCascade(activeSpacecraft);
+        if (ftaData && ftaData.nodes && ftaData.nodes.length > 0) {
+          setFaultTreeGraph(ftaData);
+        }
       } else {
         setIsBackendConnected(false);
       }
@@ -432,6 +440,10 @@ export const MissionProvider = ({ children }) => {
               }
 
               // Parse predictive forecasting data from WebSocket tick
+              if (data.fault_tree) {
+                setFaultTreeGraph(data.fault_tree);
+              }
+
               if (data.forecast) {
                 if (data.forecast.channels) {
                   setForecastChannels(data.forecast.channels);

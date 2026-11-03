@@ -269,3 +269,19 @@ export async function fetchSaaStatus(spacecraftId = 'ASTRA-ALPHA') {
     return null;
   }
 }
+
+// ============================================================
+// Fault Tree Analysis (FTA) & Cascading Failure Graph API
+// ============================================================
+
+export async function fetchFaultTreeCascade(spacecraftId = 'ASTRA-ALPHA') {
+  try {
+    const res = await fetch(`${API_BASE}/fault-tree/active-cascade?spacecraft_id=${encodeURIComponent(spacecraftId)}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[FTA] Failed to fetch fault tree cascade:', err);
+    return null;
+  }
+}
+

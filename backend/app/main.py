@@ -15,7 +15,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
-from app.routers import telemetry, events, websocket, fleet, orbital, forecasting
+from app.routers import telemetry, events, websocket, fleet, orbital, forecasting, fta
 from app.services.telemetry_service import telemetry_service
 from app.services.orbital_service import orbital_service
 
@@ -68,6 +68,7 @@ app.include_router(fleet.router, prefix=f"{settings.API_V1_STR}/fleet", tags=["C
 app.include_router(orbital.router, prefix=f"{settings.API_V1_STR}/orbital", tags=["Orbital Mechanics & SGP4 Engine"])
 app.include_router(websocket.router, tags=["Real-time Stream"])
 app.include_router(forecasting.router, prefix=f"{settings.API_V1_STR}/forecasting", tags=["Predictive Forecasting Engine"])
+app.include_router(fta.router, prefix=f"{settings.API_V1_STR}/fault-tree", tags=["FTA Cascading Failure Graph"])
 
 
 @app.get("/")
