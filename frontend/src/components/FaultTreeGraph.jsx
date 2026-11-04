@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { AlertTriangle, Zap, Thermometer, Radio, Cpu, Shield, Battery, Wind } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Zap, Thermometer, Radio, Cpu, Shield, Wind } from 'lucide-react';
 
 // ─── Status color tokens (Swiss Neo-Brutalist palette) ───────────────────────
 const STATUS_STYLES = {
@@ -9,7 +9,6 @@ const STATUS_STYLES = {
     shadow: '3px 3px 0px #ef4444',
     text: '#fca5a5',
     label: '#ef4444',
-    pulse: 'fta-pulse-critical',
     badge: 'bg-red-600 text-white',
   },
   PROPAGATING: {
@@ -18,7 +17,6 @@ const STATUS_STYLES = {
     shadow: '3px 3px 0px #fea619',
     text: '#fcd34d',
     label: '#fea619',
-    pulse: 'fta-pulse-propagating',
     badge: 'bg-amber-500 text-black',
   },
   WARNING: {
@@ -27,7 +25,6 @@ const STATUS_STYLES = {
     shadow: '2px 2px 0px #fbbf24',
     text: '#fde68a',
     label: '#fbbf24',
-    pulse: '',
     badge: 'bg-yellow-400 text-black',
   },
   NOMINAL: {
@@ -36,7 +33,6 @@ const STATUS_STYLES = {
     shadow: '2px 2px 0px #452a19',
     text: '#452a19',
     label: '#452a19',
-    pulse: '',
     badge: 'bg-emerald-600 text-white',
   },
 };
@@ -51,44 +47,33 @@ const SUBSYSTEM_ICONS = {
 };
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
-const NODE_W = 160;
-const NODE_H = 72;
-const COL_GAP = 200;
-const ROW_GAP = 130;
-const CANVAS_PADDING = 32;
+const NODE_W = 176;
+const NODE_H = 74;
+const COL_GAP = 224;
+const ROW_GAP = 142;
+const CANVAS_PADDING = 36;
 
 // Maps nodes to SVG coordinates based on layer/col
 function computeLayout(nodes) {
-  // Group by layer
-  const layers = {};
-  nodes.forEach((n) => {
-    if (!layers[n.layer]) layers[n.layer] = [];
-    layers[n.layer].push(n);
-  });
-
   const positions = {};
-  Object.entries(layers).forEach(([layer, layerNodes]) => {
-    const sorted = [...layerNodes].sort((a, b) => a.col - b.col);
-    const totalWidth = sorted.length * NODE_W + (sorted.length - 1) * (COL_GAP - NODE_W);
-    const startX = CANVAS_PADDING;
-    sorted.forEach((n, i) => {
-      positions[n.id] = {
-        x: startX + i * COL_GAP,
-        y: CANVAS_PADDING + parseInt(layer) * ROW_GAP,
-      };
-    });
+  nodes.forEach((n, i) => {
+    const col = typeof n.col === 'number' ? n.col : i;
+    const layer = typeof n.layer === 'number' ? n.layer : 0;
+    positions[n.id] = {
+      x: CANVAS_PADDING + col * COL_GAP,
+      y: CANVAS_PADDING + layer * ROW_GAP,
+    };
   });
 
-  // Compute canvas size
   const allX = Object.values(positions).map((p) => p.x);
   const allY = Object.values(positions).map((p) => p.y);
-  const width = Math.max(...allX) + NODE_W + CANVAS_PADDING;
-  const height = Math.max(...allY) + NODE_H + CANVAS_PADDING;
+  const width = Math.max(...allX, 0) + NODE_W + CANVAS_PADDING + 140;
+  const height = Math.max(...allY, 0) + NODE_H + CANVAS_PADDING + 20;
 
   return { positions, width, height };
 }
 
-// Animated flowing dash for active edges
+// Prominent, high-contrast animated edge path with directional arrow
 function EdgePath({ edge, positions }) {
   const src = positions[edge.source];
   const tgt = positions[edge.target];
@@ -97,30 +82,57 @@ function EdgePath({ edge, positions }) {
   const x1 = src.x + NODE_W / 2;
   const y1 = src.y + NODE_H;
   const x2 = tgt.x + NODE_W / 2;
-  const y2 = tgt.y;
+  const y2 = tgt.y; // Arrow tip docks right at the top border of target node
   const midY = (y1 + y2) / 2;
 
   const pathD = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
-  const color = edge.active ? '#fea619' : '#7c5d42';
-  const strokeW = edge.active ? 2.5 : 1.5;
-  const opacity = edge.active ? 0.9 : 0.4;
+
+  const isActive = Boolean(edge.active);
+  const strokeColor = isActive ? '#fea619' : '#deb887';
+  const strokeW = isActive ? 3.5 : 2.5;
+  const opacity = isActive ? 1.0 : 0.85;
 
   return (
-    <g>
-      {/* Static base path */}
+    <g className="fta-edge-group">
+      {/* 1. Deep black shadow underlay for bold visibility against dark canvas */}
       <path
         d={pathD}
         fill="none"
-        stroke={color}
+        stroke="#050302"
+        strokeWidth={strokeW + 4}
+        strokeOpacity={0.9}
+        strokeLinecap="round"
+      />
+
+      {/* 2. Main visible connector line */}
+      <path
+        d={pathD}
+        fill="none"
+        stroke={strokeColor}
         strokeWidth={strokeW}
         strokeOpacity={opacity}
-        strokeDasharray={edge.active ? '6 4' : '3 4'}
+        strokeLinecap="round"
+        strokeDasharray={isActive ? '8 4' : 'none'}
+        markerEnd={isActive ? 'url(#arrow-active)' : 'url(#arrow-nominal)'}
+        filter={isActive ? 'url(#ftaGlow)' : undefined}
       />
-      {/* Animated particle for active propagation */}
-      {edge.active && (
-        <circle r="4" fill="#fea619" opacity="0.9">
-          <animateMotion dur="1.5s" repeatCount="indefinite" path={pathD} />
-        </circle>
+
+      {/* 3. Dual animated flowing particles for active failure propagation */}
+      {isActive && (
+        <>
+          {/* Amber glowing lead particle */}
+          <circle r="5.5" fill="#fea619" filter="url(#ftaGlow)">
+            <animateMotion dur="1.8s" repeatCount="indefinite" path={pathD} />
+          </circle>
+          {/* Hot white inner spark */}
+          <circle r="3" fill="#ffffff" opacity="0.95">
+            <animateMotion dur="1.8s" repeatCount="indefinite" path={pathD} />
+          </circle>
+          {/* Red warning trail particle */}
+          <circle r="4.5" fill="#ef4444" opacity="0.85">
+            <animateMotion dur="1.8s" begin="0.9s" repeatCount="indefinite" path={pathD} />
+          </circle>
+        </>
       )}
     </g>
   );
@@ -145,7 +157,7 @@ function FaultNode({ node, pos, onClick, isSelected }) {
           rx={6}
           fill="none"
           stroke="#0284c7"
-          strokeWidth={2.5}
+          strokeWidth={3}
           strokeDasharray="5 3"
         />
       )}
@@ -213,11 +225,11 @@ function FaultNode({ node, pos, onClick, isSelected }) {
         y={34}
         textAnchor="middle"
         fill={style.text}
-        fontSize={10}
+        fontSize={10.5}
         fontFamily="'JetBrains Mono', monospace"
         fontWeight="700"
       >
-        {node.label.length > 20 ? node.label.substring(0, 18) + '…' : node.label}
+        {node.label.length > 22 ? node.label.substring(0, 20) + '…' : node.label}
       </text>
 
       {/* Subsystem badge */}
@@ -228,8 +240,8 @@ function FaultNode({ node, pos, onClick, isSelected }) {
         fill={style.label}
         fontSize={9}
         fontFamily="'JetBrains Mono', monospace"
-        fontWeight="500"
-        opacity={0.8}
+        fontWeight="600"
+        opacity={0.9}
       >
         [{node.subsystem}]
       </text>
@@ -240,9 +252,10 @@ function FaultNode({ node, pos, onClick, isSelected }) {
         y={64}
         textAnchor="middle"
         fill={style.text}
-        fontSize={9}
+        fontSize={9.5}
         fontFamily="'JetBrains Mono', monospace"
-        opacity={0.9}
+        fontWeight="500"
+        opacity={0.95}
       >
         {node.live_value}
       </text>
@@ -333,30 +346,68 @@ export function FaultTreeGraph({ nodes = [], edges = [], summary = {}, onNodeCli
           height={height}
           style={{ minWidth: '100%', display: 'block' }}
         >
-          {/* Grid dots background */}
+          {/* SVG Definitions: Grids, Glow Filters, and Arrowheads */}
           <defs>
-            <pattern id="ftaGrid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-              <circle cx="1" cy="1" r="0.8" fill="#3d2010" opacity="0.5" />
+            {/* Grid dots background */}
+            <pattern id="ftaGrid" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle cx="1.5" cy="1.5" r="1" fill="#452a19" opacity="0.35" />
             </pattern>
+
+            {/* Glowing amber filter for active failure vectors */}
+            <filter id="ftaGlow" x="-25%" y="-25%" width="150%" height="150%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
+            {/* Nominal Arrowhead */}
+            <marker
+              id="arrow-nominal"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="7"
+              markerHeight="7"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#deb887" />
+            </marker>
+
+            {/* Active / Propagating Arrowhead */}
+            <marker
+              id="arrow-active"
+              viewBox="0 0 10 10"
+              refX="8"
+              refY="5"
+              markerWidth="9"
+              markerHeight="9"
+              orient="auto-start-reverse"
+            >
+              <path d="M 0 1 L 9.5 5 L 0 9 z" fill="#fea619" />
+            </marker>
           </defs>
+
           <rect width={width} height={height} fill="url(#ftaGrid)" />
 
-          {/* Layer labels */}
+          {/* Layer architectural labels */}
           {[
-            { y: CANVAS_PADDING + NODE_H / 2, label: 'LAYER 0 · SOURCE' },
-            { y: CANVAS_PADDING + ROW_GAP + NODE_H / 2, label: 'LAYER 1 · PRIMARY BUS' },
-            { y: CANVAS_PADDING + 2 * ROW_GAP + NODE_H / 2, label: 'LAYER 2 · SUBSYSTEMS' },
-            { y: CANVAS_PADDING + 3 * ROW_GAP + NODE_H / 2, label: 'LAYER 3 · AVIONICS' },
+            { y: CANVAS_PADDING + NODE_H / 2 + 4, label: 'LAYER 0 · SENSORS & POWER GENERATION' },
+            { y: CANVAS_PADDING + ROW_GAP + NODE_H / 2 + 4, label: 'LAYER 1 · MAIN POWER DISTRIBUTION' },
+            { y: CANVAS_PADDING + 2 * ROW_GAP + NODE_H / 2 + 4, label: 'LAYER 2 · FUNCTIONAL SUBSYSTEMS' },
+            { y: CANVAS_PADDING + 3 * ROW_GAP + NODE_H / 2 + 4, label: 'LAYER 3 · FLIGHT AUTONOMY & SAFE-MODE' },
           ].map(({ y, label }) => (
             <text
               key={label}
-              x={width - 8}
+              x={width - 16}
               y={y}
               textAnchor="end"
-              fill="#7c5d42"
-              fontSize={9}
+              fill="#ebdccb"
+              fontSize={10}
               fontFamily="'JetBrains Mono', monospace"
-              opacity={0.6}
+              opacity={0.4}
+              fontWeight="600"
             >
               {label}
             </text>
@@ -388,10 +439,14 @@ export function FaultTreeGraph({ nodes = [], edges = [], summary = {}, onNodeCli
         </svg>
       </div>
 
-      <p className="mt-2 text-xs opacity-50" style={{ color: '#452a19', fontFamily: "'JetBrains Mono', monospace" }}>
-        Click any node to inspect live telemetry · Dashed amber edges = active propagation path
-      </p>
+      <div className="mt-2.5 flex items-center justify-between text-xs" style={{ color: '#452a19', fontFamily: "'JetBrains Mono', monospace" }}>
+        <p className="opacity-75">
+          <span className="font-bold">Legend:</span> Cream solid lines (<span className="text-[#a16207] font-bold">#deb887</span>) = Nominal dependency · Glowing amber dashed lines (<span className="text-[#d97706] font-bold">#fea619</span>) = Active failure vector
+        </p>
+        <p className="opacity-60 text-[11px]">
+          Click any node to inspect live sensor telemetry & thresholds
+        </p>
+      </div>
     </div>
   );
 }
-

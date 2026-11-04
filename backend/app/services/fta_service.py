@@ -28,7 +28,7 @@ SUBSYSTEM_TOPOLOGY = {
         "channel": "temperature",
         "description": "Primary thermal regulation loop. Maintains spacecraft body temperature within survivability limits.",
         "layer": 0,
-        "col": 1,
+        "col": 2,
         "depends_on": [],
     },
     "node-bus-voltage": {
@@ -37,7 +37,7 @@ SUBSYSTEM_TOPOLOGY = {
         "channel": "voltage",
         "description": "Main DC power bus. Distributes regulated voltage to all downstream subsystems.",
         "layer": 1,
-        "col": 0,
+        "col": 0.5,
         "depends_on": ["node-solar"],
     },
     "node-battery": {
@@ -82,7 +82,7 @@ SUBSYSTEM_TOPOLOGY = {
         "channel": "p3",
         "description": "On-Board Computer and avionics bus. Executes flight software and subsystem command arbitration.",
         "layer": 3,
-        "col": 1,
+        "col": 0.5,
         "depends_on": ["node-battery", "node-adcs"],
     },
     "node-safe-mode": {
@@ -91,7 +91,7 @@ SUBSYSTEM_TOPOLOGY = {
         "channel": "p3",
         "description": "Autonomous safe-mode arbiter. Arms when critical subsystem thresholds are violated.",
         "layer": 3,
-        "col": 2,
+        "col": 2.5,
         "depends_on": ["node-battery", "node-tcs-radiator", "node-ttc"],
     },
 }
