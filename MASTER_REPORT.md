@@ -27,7 +27,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 1. Why Does ASTRA Exist?
 2. The Big Idea (The Solution)
 3. System Architecture
-4. Every Feature Explained (Features 1 through 20)
+4. Every Feature Explained (Features 1 through 22)
 5. The Complete User Journey (Step-by-Step)
 6. The Technology Stack
 7. The AI Brain — Gemini Multi-Model Cascade & Aerospace Copilot
@@ -36,7 +36,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 10. Human-in-the-Loop Safety & Role-Based Access Control (RBAC)
 11. Persistent Database Architecture (SQLite astra.db & JSON Store)
 12. The Design System & Dual-View Print Architecture
-13. All 11 Pages and Modals Explained
+13. All 12 Pages, Modals, and Drawers Explained
 14. How Commands Work (Approve / Reject Flow)
 15. Deployment Architecture
 16. File Structure
@@ -615,8 +615,21 @@ The operator navigates to the Fleet Overview page (`Fleet Mesh` in the sidebar):
 - The operator clicks "Focus This Satellite" or selects a node from the global header dropdown: ground station telemetry instantly re-anchors to that spacecraft without dropping WebSocket connections, and an immutable `COMMAND_UPLINK` event is permanently recorded in SQLite `astra.db`.
 - The operator tests the mesh diagnostics via "Ping ISL Mesh" and exports constellation status via "Export Fleet JSON".
 
-**STEP 12 — Persistence Verification & Nominal Reset**
-The operator navigates to the Event Log to inspect the chronological timeline. Every action—channel switches, spacecraft focus changes, AI diagnostic runs, command approvals, and role updates—is permanently recorded in SQLite `astra.db` (Write-Ahead Logging mode) and exported as JSON. Finally, clicking "Reset Nominal" restores telemetry to baseline values, clearing all active alarms.
+**STEP 12 — Predictive Runway Countdown Alarms & Horizon Forecasting**
+The operator observes active sensor trajectories on the Live Telemetry and Anomaly Center dashboards. As sensor degradation begins, ASTRA's rolling Ordinary Least Squares (OLS) regression engine computes dynamic time-to-breach countdowns. The `RunwayAlarmBanner` emerges at the top of the deck, warning the operator in real time (e.g., `⚠️ PREDICTIVE ALARM: Battery SoC projected to breach 20% threshold in 3m 42s`). On the synchronized waveform chart, a dashed predictive line extends +25 seconds into the future beyond the `T-0 Live` boundary marker, allowing controllers to intervene before safety margins are breached.
+
+**STEP 13 — Interactive Fault Tree Analysis (FTA) & Cascading Failure Exploration**
+In the Anomaly Center, the operator switches to the **Fault Tree Analysis (FTA)** view. A high-performance, directional SVG graph visualizes the entire 4-layer subsystem dependency architecture (Layer 0 Sources → Layer 1 Distribution → Layer 2 Dependent Subsystems → Layer 3 Avionics & Safe-Mode). When a critical anomaly strikes an upstream node (e.g. Solar Array `node-solar`), animated particle flow lines demonstrate the cascading failure path as downstream nodes (Power Bus Voltage, Battery, Reaction Wheels) turn amber and trigger safe-state readiness. The operator clicks any node to slide open the **Node Inspection Drawer**, inspecting live sensor metrics, engineering threshold limits, and linked Gemini AI root cause analyses.
+
+**STEP 14 — Cryptographic Command Uplink & T-10s Countdown Abort Window**
+When the Flight Director approves a staged recovery command, ASTRA executes an aerospace cryptographic handshake protocol:
+1. The backend dynamically computes a secure 64-character SHA-256 HMAC authorization token derived from session keys, operator ID, and command payloads.
+2. The high-urgency **Secure Uplink Handshake Modal** appears, rendering an animated circular countdown ring starting at **T-minus 10.0 seconds** alongside the live cryptographic fingerprint.
+3. If an error is noticed, the operator clicks **[ ABORT TRANSMISSION (ESC) ]** to instantly cancel the uplink and record a security audit entry.
+4. If allowed to expire (T-0), the command is automatically transmitted over the DSN, executed on the spacecraft, and permanently notarized with its HMAC signature in the SQLite `astra.db` ledger and official NASA flight debrief reports. Operators can also re-arm or stage new contingency commands at will for complete operational control.
+
+**STEP 15 — Persistence Verification & Nominal Reset**
+The operator navigates to the Event Log to inspect the chronological timeline. Every action—channel switches, spacecraft focus changes, AI diagnostic runs, cryptographic signatures, command authorizations, and role updates—is permanently recorded in SQLite `astra.db` (Write-Ahead Logging mode) and exported as JSON. Finally, clicking "Reset Nominal" restores telemetry to baseline values, clearing all active alarms.
 
 ---
 
@@ -643,6 +656,10 @@ The operator navigates to the Event Log to inspect the chronological timeline. E
 | **Python 3.11+** | Core runtime for backend services, mathematical detectors, and AI routing |
 | **FastAPI** | High-performance asynchronous REST API framework with automatic OpenAPI docs |
 | **WebSocket** | Persistent full-duplex streaming pipeline delivering 1.2-second telemetry frames |
+| **SGP4 & CelesTrak Ingestion** | Real-time SGP4 orbital propagator (`sgp4.api`) evaluating TEME/GMST/WGS84 coordinate frames |
+| **Rolling OLS Regression Engine** | 60-tick rolling sliding-window Ordinary Least Squares algorithm for time-to-breach forecasting |
+| **Fault Tree Graph Engine** | Topological failure cascade resolution traversing 4-layer subsystem dependency trees |
+| **HMAC-SHA256 Cryptographic Engine** | Dynamic token generation, 10-second abort window management, and tamper-evident signing |
 | **SQLite3 (astra.db)** | Crash-resilient relational database operating in Write-Ahead Logging (WAL) mode |
 | **JSON File Store** | Zero-latency disk-backed fallback ledger (`event_store.json`) for audit events |
 | **Pydantic v2** | Strict schema validation, data serialization, and structured AI response parsing |
@@ -859,14 +876,17 @@ Mission critical flight logs must survive server crashes, power failures, and re
 The backend maintains an embedded relational database at `backend/app/storage/astra.db` initialized with **Write-Ahead Logging (WAL)** mode for concurrent read/write throughput and crash resilience:
 
 ```sql
--- Audit Ledger Table
+-- Audit Ledger Table (With Cryptographic Verification Columns)
 CREATE TABLE IF NOT EXISTS audit_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     timestamp TEXT NOT NULL,
     event_type TEXT NOT NULL,
     message TEXT NOT NULL,
     metadata TEXT,
-    role TEXT DEFAULT 'FLIGHT_DIRECTOR'
+    role TEXT DEFAULT 'FLIGHT_DIRECTOR',
+    crypto_hash TEXT,                -- HMAC-SHA256 signature for notarized command uplinks
+    signature_status TEXT,           -- UPLINK_TRANSMITTED, ABORTED, or NULL
+    transmission_timestamp TEXT      -- Precise execution timestamp
 );
 
 -- Anomaly Records Table
@@ -890,14 +910,22 @@ CREATE TABLE IF NOT EXISTS telemetry_frames (
     subsystem TEXT NOT NULL
 );
 
--- Staged Command Uplinks Table
+-- Staged Command Uplinks Table (Expanded with Cryptographic Notarization)
 CREATE TABLE IF NOT EXISTS staged_commands (
-    id TEXT PRIMARY KEY,
-    cmd_code TEXT NOT NULL,
-    title TEXT NOT NULL,
-    status TEXT NOT NULL,
-    approved_by TEXT,
-    timestamp TEXT NOT NULL
+    command_id TEXT PRIMARY KEY,
+    command_name TEXT NOT NULL,
+    command_code TEXT NOT NULL,
+    subsystem TEXT NOT NULL,
+    spacecraft_id TEXT NOT NULL,
+    anomaly_id TEXT,
+    severity TEXT NOT NULL,
+    status TEXT NOT NULL,            -- PENDING, PENDING_ABORT_WINDOW, APPROVED, ABORTED, REJECTED
+    operator_id TEXT,
+    crypto_hash TEXT,                -- Generated SHA-256 HMAC signature token
+    signature_status TEXT,           -- PENDING_ABORT_WINDOW, UPLINK_TRANSMITTED, ABORTED
+    transmission_timestamp TEXT,     -- ISO8601 execution timestamp
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 -- Constellation Spacecraft Nodes Table
@@ -966,7 +994,7 @@ A standout feature of ASTRA is its **Dual-View Print Engine** built for official
 
 ---
 
-## 13. All 12 Pages and Modals Explained
+## 13. All 12 Pages, Modals, and Drawers Explained
 
 ### Page 1: Welcome Page (`WelcomePage.jsx`)
 The immersive operational threshold of ASTRA.
@@ -999,14 +1027,14 @@ Real-time satellite trajectory propagation and world ground track control consol
 - **Real-Time Geodetic Cards:** Live digital telemetry cards for Sub-Satellite Latitude, Longitude, Altitude (km), and Orbital Velocity (km/s).
 - **Subsolar Point Indicator:** Dynamic calculation of the Sun's declination and hour angle for daylight terminator boundary tracking.
 
-### Page 4: Live Telemetry Console (`LiveTelemetryPage.jsx`)
+### Page 5: Live Telemetry Console (`LiveTelemetryPage.jsx`)
 The deep-inspection engineering workstation.
 - **Selectable Metric Cards:** Primary metric cards for P-3 score, temperature, bus voltage, battery state of charge, and solar array generation.
 - **Synchronized Waveform Chart:** High-performance multi-channel synchronized line graph with interactive channel toggles, hover scrubbers, and zoom controls.
 - **Dynamic 82-Channel Matrix Selector:** Dropdown menu allowing operators to switch live streaming focus across any of the 82 NASA telemetry channels without socket disconnection.
 - **Telemetry Replay & Simulation Triggers:** Instant buttons for "NASA P-3 Replay" and "Simulate Anomaly".
 
-### Page 5: Anomaly Center (`AnomalyCenterPage.jsx`)
+### Page 6: Anomaly Center (`AnomalyCenterPage.jsx`)
 The critical incident investigation and resolution hub.
 - **Chronological Incident Cards:** Clickable queue of all detected anomalies with severity badges, timestamp offsets, and peak deviation metrics.
 - **Event-Focused Waveform Zoom:** Waveform viewer that automatically frames the exact start-to-end window of the selected anomaly.
@@ -1014,21 +1042,21 @@ The critical incident investigation and resolution hub.
 - **HITL Staged Command Deck:** Staged recovery procedures with individual "Approve" / "Reject" controls and bulk "Approve All" capabilities.
 - **Model Benchmark Tab:** Side-by-side performance audit comparing detection latency and accuracy across Gemini cascade models.
 
-### Page 6: Subsystems Monitor (`SubsystemsPage.jsx`)
+### Page 7: Subsystems Monitor (`SubsystemsPage.jsx`)
 Component-level operational health across spacecraft subsystems.
 - **Dedicated Subsystem Cards:** Deep telemetry panels for EPS (Electrical Power), TCS (Thermal Control), TT&C (Telemetry, Tracking & Command), and ADCS (Attitude Determination & Control).
 - **Physical Sensor Limits:** Displays instantaneous readings against nominal threshold envelopes (e.g. 24.0V ± 1.5V, 15°C to 45°C).
 - **Live Trend Mini-Charts:** High-density 30-second trend sparklines providing immediate visual rate-of-change feedback.
 - **Bus Architecture Metadata:** Bus protocol telemetry indicators (MIL-STD-1553B, CAN, SpaceWire).
 
-### Page 7: AI Mission Assistant (`AIAssistantPage.jsx`)
+### Page 8: AI Mission Assistant (`AIAssistantPage.jsx`)
 The dedicated conversational aerospace engineering copilot console.
 - **Dual-Pane Layout:** Left pane displays the active anomaly reasoning report; right pane hosts the interactive conversational copilot.
 - **StructuredMarkdown Rendering:** Parses AI output into technical phase badges, inline telemetry pills (`24.18 V`), engineering bullet lists, and callout containers.
 - **Interactive Technical Q&A:** Ground operators can ask complex questions regarding orbital mechanics, battery load-shedding procedures, thermal contingency modes, and DSN antenna pointing.
 - **Model Cascade Transparency:** Displays the exact Google Gemini model ID that produced the current reasoning frame.
 
-### Page 8: Simulation Testbed (`SimulationPage.jsx`)
+### Page 9: Simulation Testbed (`SimulationPage.jsx`)
 Safe, sandboxed environment for testing emergency flight procedures.
 - **Pre-Configured Failure Scenarios:**
   1. *NASA P-3 Historical Flight Anomaly:* Real-world SMAP satellite power bus deviation.
@@ -1037,14 +1065,14 @@ Safe, sandboxed environment for testing emergency flight procedures.
 - **Safety Interlock Modal:** Prevents accidental simulation activation in active flight monitoring modes with confirmation prompts.
 - **Dataset Preview Table:** Raw numeric inspection table showing step-by-step values surrounding the historical anomaly window.
 
-### Page 9: Event Log & Audit Ledger (`EventLogPage.jsx`)
+### Page 10: Event Log & Audit Ledger (`EventLogPage.jsx`)
 The comprehensive, unalterable mission black box.
 - **Visual Mission Flight Timeline:** 5-phase flight sequence indicator (Launch, Array Deployment, Nominal Operations, Anomaly Event, Anomaly Recovery).
 - **Multi-Category Filter Matrix:** One-click filters for `ALL`, `CRITICAL`, `WARNING`, `COMMAND_UPLINK`, `STREAM_RECONFIGURED`, and `INFO`.
 - **Global Search:** Fast full-text keyword filtering across event descriptions, operator IDs, and timestamps.
 - **Audit Export:** One-click JSON export button downloading the complete flight log for external archival.
 
-### Page 10: Mission Reports & Debrief Generator (`MissionReportsPage.jsx`)
+### Page 11: Mission Reports & Debrief Generator (`MissionReportsPage.jsx`)
 Certified flight debriefing engine featuring dual-view technology.
 - **Interactive Flight Debrief Card (On-Screen View):**
   - Swiss Neo-Brutalist design with high-contrast metadata badges and cryptographic SHA-256 flight notarization.
@@ -1055,7 +1083,7 @@ Certified flight debriefing engine featuring dual-view technology.
   - Re-formats into a publication-grade NASA Technical Document on crisp white A4 paper.
   - Classification banners (`[ UNCLASSIFIED / FORMAL ARCHIVE ]`), 1px black engineering grid tables, and dual official sign-off blocks signed by **Gene Kranz** (Flight Director) and **Dr. Eleanor Arroway** (Chief AI Scientist).
 
-### Page 11: Settings & RBAC Clearance Control (`SettingsPage.jsx`)
+### Page 12: Settings & RBAC Clearance Control (`SettingsPage.jsx`)
 Operational configuration, security clearance, and system diagnostics.
 - **Role-Based Clearance Switcher:** Toggle operational clearance between `FLIGHT_DIRECTOR` (Class-1 Command Authority) and `TELEMETRY_OBSERVER` (Class-3 Read-Only Monitor).
 - **Telemetry Sampling Rate:** Configurable WebSocket telemetry delivery interval (0.5s to 3.0s).
@@ -1068,7 +1096,28 @@ Mission-wide keyboard-driven command interface accessible from any page.
 - **Arrow-Key Auto-Scroll:** Smooth auto-scrolling synchronization using `scrollIntoView({ block: 'nearest', behavior: 'smooth' })` ensuring the selected card is always centered.
 - **Stationary Pointer Guard:** Prevents stationary mouse cursors from hijacking keyboard navigation as items scroll beneath the pointer.
 - **High-Contrast Swiss Palette:** Deep dark ink text (`#161514`), dark brown subtitles (`#5c3d28`), and amber badges for flawless contrast.
-- **Omni-Search Navigation:** Jump to any of the 11 pages, trigger simulation commands, switch constellation focus between Alpha, Beta, and Gamma, or switch between all 82 telemetry channels in milliseconds.
+- **Omni-Search Navigation:** Jump to any of the 12 pages, trigger simulation commands, switch constellation focus between Alpha, Beta, and Gamma, or switch between all 82 telemetry channels in milliseconds.
+
+### Global Modal 2: Secure Uplink Handshake & Countdown Abort Modal (`SecureUplinkModal.jsx`)
+Ultra-realistic aerospace security modal invoked when authorizing any critical spacecraft command.
+- **T-Minus 10.0s Animated Circular Countdown Ring:** Live SVG circular progress ring depleting continuously alongside a high-precision digital second countdown.
+- **Cryptographic HMAC-SHA256 Fingerprint Display:** Displays the live 64-character cryptographic hash and truncated tactical badge (`HMAC: 7f4a2b91...8c3d6e5a`) with a one-click copy button.
+- **Instant Abort Control (`[ ABORT TRANSMISSION (ESC) ]`):** High-urgency red abort button allowing the Flight Director to cancel transmission during the 10-second window before physical uplink occurs.
+- **Automated Uplink Transmission:** Automatically commits and transmits the cryptographically signed command to SQLite and WebSocket when the countdown reaches 0.0s.
+
+### Global Drawer 3: Fault Tree Subsystem & Telemetry Inspection Drawer (`NodeInspectionModal.jsx`)
+Interactive slide-over telemetry drawer opening upon clicking any node in the Fault Tree Analysis graph.
+- **Live Sensor Telemetry Spotlight:** Real-time sensor readout updating at 1.2s intervals alongside channel identifier.
+- **Engineering Threshold Inspection:** Compares instantaneous sensor value against calibrated Critical High/Low and Warning High/Low boundaries.
+- **Subsystem Architecture Specification:** Displays layer topology (Layer 0 through Layer 3) and architectural descriptions.
+- **Gemini AI Root Cause Integration:** Direct link to active Gemini diagnostic findings and recommended countermeasures.
+- **Staged Command Uplinks & Re-Arming:** Lists associated contingency actions, cryptographic uplink statuses, and one-click authorization / re-test controls.
+
+### Tactical Banner: Runway Horizon Predictive Alarms (`RunwayAlarmBanner.jsx`)
+Tactical proactive warning banner mounted across the Live Telemetry and Anomaly Center decks.
+- **Dynamic Time-to-Breach Counter:** Digital countdown clock decrementing every second: `⚠️ PREDICTIVE ALARM: Battery SoC projected to breach 20% threshold in 3m 42s`.
+- **Severity-Driven Neo-Brutalist Styling:** Pulsing dark red container for Critical breaches; dark brown with amber accents for Warning breaches.
+- **Multi-Alarm Navigation & Dismissal:** Allows cycling between multiple simultaneous runway alarms or dismissing individual alerts with permanent high-contrast action buttons.
 
 ---
 
@@ -1083,29 +1132,49 @@ CMD_02  [PENDING REVIEW]  Initiate bus undervoltage safe-mode
 CMD_03  [PENDING REVIEW]  Uplink contingency thermal protocol
 ```
 
-### The Approval Flow
+### The Cryptographic Approval & Abort Handshake Flow
 ```
 COMMAND STAGING QUEUE
-  CMD_01: "Deploy backup solar array panel B"
-  Classification: EMERGENCY POWER RESTORATION
+  CMD_SAFE_P3: "Safe-State Channel P-3"
+  Classification: CRITICAL POWER ISOLATION
   Clearance Required: FLIGHT_DIRECTOR
   Status: PENDING OPERATOR AUTHORIZATION
-  [APPROVE & UPLINK]    [REJECT]
+  [ AUTHORIZE COMMAND ]    [ REJECT ]
 
        |
-       | Flight Director clicks [APPROVE & UPLINK]
+       | Flight Director clicks [ AUTHORIZE COMMAND ]
        v
-
-  CMD_01: "Deploy backup solar array panel B"
-  Status: UPLINKED & EXECUTED — Committed to SQLite astra.db at 2026-10-21T11:58:12Z
-  Signature: FD_KRANZ_CLASS1
+  BACKEND CRYPTOGRAPHIC HANDSHAKE ENGINE
+  1. Computes session HMAC-SHA256 token:
+     Payload = "CMD-P3-SAFE:Flight Director Gene Kranz:2026-11-04T03:40:39Z:CMD_SAFE_P3"
+     HMAC Signature = 43086406d8a2cc0ca11f93f9ef2bd1d0ba10c9ee66453f20a67e81ea19927cfc
+  2. Opens 10.0-Second Abort Window:
+     Status: PENDING_ABORT_WINDOW
+       |
+       | Frontend intercepts and displays SecureUplinkModal
+       v
+  SECURE UPLINK HANDSHAKE MODAL (T-minus 10.0s Countdown)
+  [ Progress Ring: 10.0s ... 5.2s ... 0.0s ]
+  HMAC Fingerprint: 43086406...19927cfc
+       |
+       +---> [ ABORT TRANSMISSION (ESC) ] Clicked
+       |     --> Command marked ABORTED in SQLite; transmission revoked; WARNING logged.
+       |
+       +---> Countdown reaches T-0.0s (Auto-Transmit)
+             --> POST /api/v1/commands/{id}/transmit
+             --> Status: UPLINK_TRANSMITTED
+             --> Committed permanently to SQLite staged_commands & audit_log
+             --> Spacecraft restores nominal envelope
+             --> HMAC Token displayed in Anomaly Center, Event Log & NASA PDF Debrief
 ```
 
 Every command decision:
 1. Validates the operator's active RBAC clearance (`FLIGHT_DIRECTOR`).
-2. Immediately updates the UI with an execution confirmation badge.
-3. Permanently commits an immutable record into SQLite `astra.db` and `event_store.json`.
-4. Cannot be bypassed by autonomous AI actions.
+2. Dynamically generates a tamper-evident HMAC-SHA256 cryptographic signature.
+3. Enforces a real-time 10.0-second abort countdown window with full operator override capability.
+4. Permanently commits an immutable record into SQLite `astra.db` (tables `staged_commands` and `audit_log`) and `event_store.json`.
+5. Provides **Re-stage / Re-arm** and **+ Stage Contingency Command** controls so operators can re-test the secure uplink at will.
+6. Cannot be bypassed by autonomous AI actions under any operational scenario.
 
 ---
 
@@ -1171,7 +1240,7 @@ d:\Competition\Hackspire\
 │       ├── index.css                    Swiss Brutalist design tokens & @media print rules
 │       │
 │       ├── context/
-│       │   └── MissionContext.jsx       Global state: telemetry, anomalies, RBAC, WS
+│       │   └── MissionContext.jsx       Global state: telemetry, anomalies, RBAC, WS, FTA, crypto
 │       │
 │       ├── pages/
 │       │   ├── WelcomePage.jsx          Animated landing page with WebGL shader
@@ -1179,26 +1248,31 @@ d:\Competition\Hackspire\
 │       │   ├── FleetOverviewPage.jsx    Constellation fleet & ISL mesh topology deck
 │       │   ├── OrbitalMechanicsPage.jsx Real-time SGP4 ground track map & DSN visibility
 │       │   ├── LiveTelemetryPage.jsx    Real-time telemetry and 82-channel charts
-│       │   ├── AnomalyCenterPage.jsx    Incident queue and Gemini reasoning analysis
+│       │   ├── AnomalyCenterPage.jsx    Incident queue, Gemini reasoning, and Fault Tree Analysis
 │       │   ├── SubsystemsPage.jsx       Detailed subsystem engineering monitors
 │       │   ├── AIAssistantPage.jsx      Interactive copilot with StructuredMarkdown
 │       │   ├── SimulationPage.jsx       Crisis simulation testbed and safety interlock
-│       │   ├── EventLogPage.jsx         Chronological audit trail and timeline
+│       │   ├── EventLogPage.jsx         Chronological audit trail and timeline with HMAC badges
 │       │   ├── MissionReportsPage.jsx   Dual-view flight audit & official NASA PDF debrief
 │       │   └── SettingsPage.jsx         RBAC clearance switcher & platform diagnostics
 │       │
 │       ├── components/
 │       │   ├── Header.jsx               Top console header with constellation & channel switcher
+│       │   ├── Layout.jsx               Master shell layout hosting modals and sidebar
 │       │   ├── SilkWaves.jsx            Custom WebGL fragment shader for fluid waves
 │       │   ├── CommandPaletteModal.jsx  Ctrl+K command palette with auto-scrolling
+│       │   ├── SecureUplinkModal.jsx    T-10s circular countdown abort handshake modal with HMAC
+│       │   ├── NodeInspectionModal.jsx  Fault Tree Subsystem & Telemetry inspection drawer
+│       │   ├── FaultTreeGraph.jsx       High-performance SVG cascading failure propagation graph
+│       │   ├── RunwayAlarmBanner.jsx    Tactical predictive horizon breach countdown warning banner
 │       │   ├── StructuredMarkdown.jsx   Aerospace AST markdown parser (badges & pills)
 │       │   ├── TelemetryMetricCard.jsx  Individual telemetry card with sparkline trend
 │       │   ├── TelemetrySparkline.jsx   Lightweight SVG trend sparkline
 │       │   ├── AnomalyWaveformChart.jsx Zoomed incident waveform visualization
-│       │   └── SynchronizedWaveformChart.jsx Multi-channel synchronized chart
+│       │   └── SynchronizedWaveformChart.jsx Multi-channel synchronized chart with +25s horizon
 │       │
 │       ├── services/
-│       │   └── api.js                   REST API client (telemetry, AI, copilot, reports, fleet)
+│       │   └── api.js                   REST API client (telemetry, AI, copilot, reports, fleet, FTA, crypto)
 │       │
 │       └── data/
 │           └── mockData.js              Baseline nominal and anomaly flight parameters
@@ -1226,13 +1300,21 @@ d:\Competition\Hackspire\
         │   ├── events.py                Anomaly detection and AI reasoning endpoints
         │   ├── copilot.py               Interactive aerospace copilot chat endpoint
         │   ├── reports.py               Flight debrief and audit export endpoints
-        │   └── fleet.py                 Constellation fleet & ISL mesh endpoints
+        │   ├── fleet.py                 Constellation fleet & ISL mesh endpoints
+        │   ├── orbital.py               Real-time SGP4 orbital mechanics & DSN REST endpoints
+        │   ├── forecasting.py           Time-series forecasting & runway horizon alarm endpoints
+        │   ├── fta.py                   Fault Tree Analysis & cascading failure graph endpoints
+        │   └── commands.py              Cryptographic command uplink & abort handshake endpoints
         │
         ├── services/
-        │   └── telemetry_service.py     TelemetryService: 3-spacecraft 82-channel matrix & ISL jitter
+        │   ├── telemetry_service.py     TelemetryService: 3-spacecraft 82-channel matrix & ISL jitter
+        │   ├── orbital_service.py       SGP4 orbital propagator, CelesTrak TLE sync, and DSN geometry
+        │   ├── forecasting_service.py   Rolling 60-tick OLS time-series regression and breach runway
+        │   ├── fta_service.py           Topological cascading failure resolution & fault tree engine
+        │   └── crypto_service.py        HMAC-SHA256 signing utility & 10s countdown abort tracker
         │
         └── storage/
-            ├── db.py                    SQLite engine initialization with WAL mode & fleet tables
+            ├── db.py                    SQLite engine initialization with WAL mode & 7 tables
             ├── astra.db                 Persistent SQLite relational database file
             ├── event_store.py           In-memory event cache & JSON sync layer
             └── event_store.json         Disk-backed fallback JSON audit ledger
@@ -1253,9 +1335,12 @@ d:\Competition\Hackspire\
 | **Telemetry Ingestion Rate** | **1.2 Seconds** | Real-time full-duplex WebSocket tick rate |
 | **AI Model Fallback Cascade** | **15+ Models** | High resilience against cloud rate limits and outages |
 | **Fallback Reasoner Latency** | **< 5 Milliseconds** | Deterministic local safety net guaranteeing uptime |
-| **Frontend Page Architecture** | **12 Pages + 1 Modal** | Full mission control platform navigation deck |
+| **Frontend Architecture** | **12 Pages + 3 Modals/Drawers** | Complete mission control deck with FTA drawer and Crypto Handshake modal |
 | **Dual-View Output Modes** | **2 Views** | Interactive Swiss Brutalist Web UI vs NASA Print Whitepaper |
-| **Relational Database Tables** | **6 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`) |
+| **Relational Database Tables** | **7 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`, `tle_cache`) |
+| **Cryptographic Uplink Signature** | **HMAC-SHA256 (64-char)** | Dynamic cryptographic authorization token with 10.0s abort window |
+| **Predictive Runway Horizon** | **30 Steps Ahead (+25s)** | Real-time OLS velocity slope and physical time-to-breach countdowns |
+| **Fault Tree Architecture** | **4 Topological Layers** | L0 Sources → L1 Distribution → L2 Subsystems → L3 Safe-Mode |
 | **Human Approval Enforcement** | **100% Immutable** | Hardcoded at AI prompt, schema, backend, and UI layers |
 | **RBAC Clearance Levels** | **2 Tiers** | `FLIGHT_DIRECTOR` vs `TELEMETRY_OBSERVER` |
 | **Crisis Peak Temperature** | **85.0°C** | Synthetic failure threshold (vs 15.2°C nominal) |
@@ -1278,6 +1363,9 @@ ASTRA represents a major leap forward in modern spacecraft mission control softw
 8. **Crash-Resilient Database Persistence:** Guarantees permanent audit and telemetry history across server restarts via SQLite WAL mode (6 tables) and disk-backed JSON storage.
 9. **Immutable Human-in-the-Loop Safety:** Strictly enforces operator clearance and manual authorization at every architectural layer.
 10. **Real-Time Orbital Propagator & Ground Track Engine:** Propagates genuine spaceflight orbits via python `sgp4` and hourly CelesTrak TLE streams with DSN line-of-sight tracking and South Atlantic Anomaly (SAA) telemetry injection.
+11. **Predictive Time-Series Forecasting & Runway Horizon Alarms:** Employs rolling 60-tick OLS regression to project future sensor trajectories +25s ahead, computing dynamic countdowns before safety threshold breaches.
+12. **Interactive Fault Tree Analysis (FTA) & Cascading Failure Engine:** Computes and animates the propagation of subsystem anomalies across a 4-layer dependency tree, with an interactive telemetry inspection drawer.
+13. **Aerospace Cryptographic Command Uplink & 10s Handshake Timers:** Secures all command transmissions with live HMAC-SHA256 tokens, enforcing a T-minus 10-second circular countdown abort window with permanent SQLite ledger notarization.
 
 ---
 
