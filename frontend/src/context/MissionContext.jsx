@@ -1003,6 +1003,84 @@ export const MissionProvider = ({ children }) => {
     ]);
   };
 
+  // Re-stage a previously approved or rejected command for testing / re-verification
+  const restageCommand = useCallback((commandId) => {
+    setCommands((prev) =>
+      prev.map((cmd) => (cmd.id === commandId ? { ...cmd, status: 'PENDING', crypto_hash: undefined } : cmd))
+    );
+    setAnomalies((prev) =>
+      prev.map((anm) =>
+        anm.id === selectedAnomalyId
+          ? {
+              ...anm,
+              commands: (anm.commands || []).map((cmd) =>
+                cmd.id === commandId ? { ...cmd, status: 'PENDING', crypto_hash: undefined } : cmd
+              ),
+            }
+          : anm
+      )
+    );
+  }, [selectedAnomalyId]);
+
+  // Dynamically stage a new contingency command for the active anomaly
+  const stageContingencyCommand = useCallback((customCmd = null) => {
+    const defaultTemplates = [
+      {
+        id: `CMD-SOLAR-B-${Date.now().toString(16).slice(-4).toUpperCase()}`,
+        name: 'CMD_DEPLOY_SOLAR_B: Deploy Backup Solar Array Panel B',
+        desc: 'Actuate secondary pyrotechnic hinge release on starboard wing and lock solar tracker.',
+        severity: 'CRITICAL',
+        status: 'PENDING',
+        subsystem: 'EPS / POWER',
+        uplinkEst: '1.4s',
+      },
+      {
+        id: `CMD-BUS-SAFE-${Date.now().toString(16).slice(-4).toUpperCase()}`,
+        name: 'CMD_ISOLATE_BUS_2: Initiate Bus Undervoltage Safe-Mode',
+        desc: 'Isolate secondary power bus Branch 2 and transfer vital payloads to emergency diode bus.',
+        severity: 'HIGH',
+        status: 'PENDING',
+        subsystem: 'EPS / POWER',
+        uplinkEst: '2.1s',
+      },
+      {
+        id: `CMD-TCS-PURGE-${Date.now().toString(16).slice(-4).toUpperCase()}`,
+        name: 'CMD_TCS_LOOP_PURGE: Purge Thermal Radiator Loop 1',
+        desc: 'Open auxiliary bypass valve to prevent ammonia freeze-point degradation.',
+        severity: 'MEDIUM',
+        status: 'PENDING',
+        subsystem: 'TCS / THERMAL',
+        uplinkEst: '3.0s',
+      }
+    ];
+
+    const randomTemplate = defaultTemplates[Math.floor(Math.random() * defaultTemplates.length)];
+    const newCmd = customCmd || randomTemplate;
+
+    setCommands((prev) => [newCmd, ...prev.filter((c) => c.id !== newCmd.id)]);
+    setAnomalies((prev) =>
+      prev.map((anm) =>
+        anm.id === selectedAnomalyId
+          ? {
+              ...anm,
+              commands: [newCmd, ...(anm.commands || []).filter((c) => c.id !== newCmd.id)],
+            }
+          : anm
+      )
+    );
+
+    const now = new Date().toTimeString().split(' ')[0];
+    setAuditLog((prev) => [
+      {
+        id: `evt_${Date.now()}`,
+        time: now,
+        type: 'COMMAND_STAGED',
+        message: `CONTINGENCY COMMAND STAGED: [${newCmd.id}] (${newCmd.name}) queued for operator authorization.`,
+      },
+      ...prev,
+    ]);
+  }, [selectedAnomalyId]);
+
   const switchSpacecraft = useCallback(async (spacecraftId) => {
     const cleanId = spacecraftId.trim().toUpperCase();
     setActiveSpacecraftState(cleanId);
@@ -1066,6 +1144,8 @@ export const MissionProvider = ({ children }) => {
         approveCommand,
         rejectCommand,
         approveAllCommands,
+        restageCommand,
+        stageContingencyCommand,
         isBackendConnected,
         backendHealth,
         isAnalyzing,

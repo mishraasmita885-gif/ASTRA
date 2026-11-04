@@ -20,6 +20,8 @@ import {
   BarChart3,
   Info,
   Lock,
+  RotateCcw,
+  Plus,
 } from 'lucide-react';
 
 export const AnomalyCenterPage = () => {
@@ -32,6 +34,8 @@ export const AnomalyCenterPage = () => {
     approveCommand,
     rejectCommand,
     approveAllCommands,
+    restageCommand,
+    stageContingencyCommand,
     telemetryHistory,
     isCrisis,
     isAnalyzing,
@@ -502,13 +506,22 @@ export const AnomalyCenterPage = () => {
 
               {/* Recommended Operator Commands (Human-in-the-Loop) */}
               <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#736f68]">
-                    Human-in-the-Loop Operator Commands
-                  </span>
-                  <span className="text-[10px] font-mono text-red-600 font-bold">
-                    * Autonomous command execution is prohibited
-                  </span>
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs font-bold uppercase tracking-wider text-[#736f68]">
+                      Human-in-the-Loop Operator Commands
+                    </span>
+                    <span className="text-[10px] font-mono text-red-600 font-bold">
+                      * Autonomous command execution is prohibited
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => stageContingencyCommand && stageContingencyCommand()}
+                    className="px-2.5 py-1 rounded border border-[#452a19] bg-[#ebdccb] hover:bg-[#f7f4ee] text-[#452a19] text-[11px] font-mono font-bold uppercase shadow-[1px_1px_0_#452a19] cursor-pointer flex items-center gap-1.5 transition-all active:translate-x-0.5 active:translate-y-0.5"
+                    title="Stage a new contingency command to test authorization & uplink countdown"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-[#452a19]" /> Stage Contingency Command
+                  </button>
                 </div>
 
                 <div className="flex flex-col gap-2">
@@ -539,10 +552,22 @@ export const AnomalyCenterPage = () => {
 
                         <div className="flex items-center gap-2">
                           {isApproved ? (
-                            <div className="flex flex-col items-end gap-1">
-                              <span className="text-emerald-700 font-bold flex items-center gap-1">
-                                <CheckCircle2 className="w-4 h-4" /> Approved & Uplinked
-                              </span>
+                            <div className="flex flex-col items-end gap-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                                  <CheckCircle2 className="w-4 h-4" /> Approved & Uplinked
+                                </span>
+                                <button
+                                  onClick={() => {
+                                    if (restageCommand) restageCommand(cmd.id);
+                                    else approveCommand(cmd.id);
+                                  }}
+                                  title="Re-stage this command to test the T-10s cryptographic uplink countdown again"
+                                  className="px-2 py-0.5 rounded border border-[#452a19] bg-[#fea619] hover:bg-[#e59414] text-[#452a19] text-[10px] font-mono font-bold uppercase shadow-[1px_1px_0_#452a19] cursor-pointer flex items-center gap-1 transition-all active:translate-x-0.5 active:translate-y-0.5"
+                                >
+                                  <RotateCcw className="w-2.5 h-2.5 text-[#452a19]" /> Re-stage / Test Handshake
+                                </button>
+                              </div>
                               {cmd.crypto_hash ? (
                                 <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono font-bold flex items-center gap-1 shadow-xs">
                                   <Lock className="w-2.5 h-2.5 text-emerald-700" />

@@ -15,6 +15,7 @@ import {
   Sliders,
   Send,
   CheckCircle2,
+  RotateCcw,
   Clock,
   Layers,
 } from 'lucide-react';
@@ -60,6 +61,7 @@ export const NodeInspectionModal = ({ node, onClose }) => {
     telemetry,
     commands,
     approveCommand,
+    restageCommand,
     triggerGeminiAnalysis,
     isAnalyzing,
     switchActiveChannel,
@@ -324,10 +326,22 @@ export const NodeInspectionModal = ({ node, onClose }) => {
                       <span className="text-[10px] text-[#7c5d42]">{cmd.status || 'STAGED FOR TRANSMISSION'}</span>
                     </div>
                     {cmd.status === 'APPROVED' ? (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <span className="text-emerald-700 font-bold text-[10px] flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> UPLINKED
-                        </span>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-emerald-700 font-bold text-[10px] flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-600" /> UPLINKED
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (restageCommand) restageCommand(cmd.id);
+                              else approveCommand(cmd.id);
+                            }}
+                            className="px-1.5 py-0.5 bg-[#fea619] hover:bg-[#e59414] text-[#452a19] text-[9px] font-bold border border-[#452a19] shadow-[1px_1px_0_#452a19] cursor-pointer flex items-center gap-0.5"
+                            title="Re-stage command to re-test cryptographic handshake"
+                          >
+                            <RotateCcw className="w-2.5 h-2.5" /> RE-TEST
+                          </button>
+                        </div>
                         {cmd.crypto_hash && (
                           <span className="text-[9px] bg-emerald-100 text-emerald-900 px-1 py-0.2 border border-emerald-300 font-mono font-bold">
                             HMAC: {cmd.crypto_hash.slice(0, 8)}...
