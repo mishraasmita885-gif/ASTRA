@@ -19,6 +19,7 @@ import {
   Loader2,
   BarChart3,
   Info,
+  Lock,
 } from 'lucide-react';
 
 export const AnomalyCenterPage = () => {
@@ -538,9 +539,21 @@ export const AnomalyCenterPage = () => {
 
                         <div className="flex items-center gap-2">
                           {isApproved ? (
-                            <span className="text-emerald-700 font-bold flex items-center gap-1">
-                              <CheckCircle2 className="w-4 h-4" /> Approved & Uplinked
-                            </span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className="text-emerald-700 font-bold flex items-center gap-1">
+                                <CheckCircle2 className="w-4 h-4" /> Approved & Uplinked
+                              </span>
+                              {cmd.crypto_hash ? (
+                                <span className="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 font-mono font-bold flex items-center gap-1 shadow-xs">
+                                  <Lock className="w-2.5 h-2.5 text-emerald-700" />
+                                  HMAC: {cmd.crypto_hash.slice(0, 10)}...
+                                </span>
+                              ) : (
+                                <span className="text-[9px] px-1.5 py-0.2 bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono font-semibold">
+                                  CRYPTOGRAPHICALLY SIGNED
+                                </span>
+                              )}
+                            </div>
                           ) : isRejected ? (
                             <span className="text-slate-500 font-semibold flex items-center gap-1">
                               <XCircle className="w-4 h-4" /> Overridden

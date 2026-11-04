@@ -3,6 +3,7 @@ import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { useMission } from '../context/MissionContext';
 import { SilkWaves } from './ui/silk-waves';
+import { SecureUplinkModal } from './SecureUplinkModal';
 
 const SILK_WAVE_COLORS = [
   '#ffffff', // Radiant pure white crest
@@ -21,7 +22,13 @@ const SILK_WAVE_COLORS = [
  * delicate Swiss-style vertical grid columns, responsive sidebar docking, and frosted glass header.
  */
 export const Layout = ({ children }) => {
-  const { isSidebarCollapsed } = useMission();
+  const {
+    isSidebarCollapsed,
+    pendingSecureUplink,
+    setPendingSecureUplink,
+    handleAbortSecureUplink,
+    handleTransmitSecureUplink,
+  } = useMission();
 
   return (
     <div className="min-h-screen bg-[#f7f4ee] text-[#161514] flex font-sans relative antialiased selection:bg-[#4a2e1b] selection:text-[#fbf7f0] transition-colors duration-300 overflow-x-hidden print:bg-white print:overflow-visible">
@@ -71,6 +78,17 @@ export const Layout = ({ children }) => {
           </div>
         </main>
       </div>
+
+      {/* Cryptographic Command Uplink & Secure Handshake Modal */}
+      {pendingSecureUplink && (
+        <SecureUplinkModal
+          isOpen={Boolean(pendingSecureUplink)}
+          uplinkData={pendingSecureUplink}
+          onAbort={handleAbortSecureUplink}
+          onTransmit={handleTransmitSecureUplink}
+          onClose={() => setPendingSecureUplink(null)}
+        />
+      )}
     </div>
   );
 };

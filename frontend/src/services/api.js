@@ -285,3 +285,68 @@ export async function fetchFaultTreeCascade(spacecraftId = 'ASTRA-ALPHA') {
   }
 }
 
+// ============================================================
+// Cryptographic Command Uplink & Secure Handshake API
+// ============================================================
+
+export async function authorizeCommandUplink(commandId, payload = {}) {
+  try {
+    const res = await fetch(`${API_BASE}/commands/${encodeURIComponent(commandId)}/authorize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('[Crypto Uplink] Authorization failed:', err);
+    throw err;
+  }
+}
+
+export async function abortCommandUplink(commandId, payload = {}) {
+  try {
+    const res = await fetch(`${API_BASE}/commands/${encodeURIComponent(commandId)}/abort`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Crypto Uplink] Abort failed:', err);
+    throw err;
+  }
+}
+
+export async function transmitCommandUplink(commandId, payload = {}) {
+  try {
+    const res = await fetch(`${API_BASE}/commands/${encodeURIComponent(commandId)}/transmit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Crypto Uplink] Transmission failed:', err);
+    throw err;
+  }
+}
+
+export async function fetchStagedCommands(spacecraftId = null) {
+  try {
+    const url = spacecraftId
+      ? `${API_BASE}/commands/staged?spacecraft_id=${encodeURIComponent(spacecraftId)}`
+      : `${API_BASE}/commands/staged`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Crypto Uplink] Failed to fetch staged commands:', err);
+    return [];
+  }
+}

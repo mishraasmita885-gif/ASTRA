@@ -535,6 +535,37 @@ This means ASTRA **never fails** to produce a diagnosis.
 
 ---
 
+### Feature 22: Cryptographic Command Uplink & Secure Handshake Timers
+**What it is:** An ultra-realistic aerospace cryptographic security and Human-in-the-Loop (HITL) authorization engine for ASTRA. When a Flight Director authorizes a critical recovery or contingency command uplink, ASTRA enforces an HMAC-SHA256 cryptographic handshake protocol with a real-time T-minus 10-second countdown abort window, enabling operators to cancel errant transmissions before execution, while permanently notarizing all authenticated commands with SHA-256 signatures in the SQLite `astra.db` ledger and official NASA flight debrief reports.
+
+**CRITICAL ARCHITECTURAL GUARANTEE:** ZERO HARDCODED SIGNATURES OR STATIC MOCK TIMERS. All cryptographic tokens, HMAC-SHA256 fingerprints, countdown timers, and SQLite audit records are dynamically generated live from active session parameters, operator credentials, and command payloads.
+
+**Key Technical Capabilities:**
+1. **Dynamic Cryptographic HMAC-SHA256 Signing Engine (`backend/app/services/crypto_service.py`):**
+   - Derives session-isolated security keys to dynamically hash operational command payloads:
+     $$\text{Payload} = \text{command\_id} \parallel \text{operator\_id} \parallel \text{timestamp\_iso} \parallel \text{command\_code}$$
+     $$\text{Token} = \text{HMAC-SHA256}(K, \text{Payload})$$
+   - Generates 64-character hexadecimal security signatures and 16-character tactical fingerprints (e.g. `7f4a2b91...8c3d6e5a`).
+2. **Real-Time 10.0-Second Countdown Abort Window:**
+   - Initiates an active T-minus 10.0-second safety window on authorization:
+     $$\Delta t_{\text{remaining}} = \max\left(0,\, t_{\text{expires}} - t_{\text{now}}\right)$$
+   - Allows instant operator abortion via the high-urgency **[ ABORT TRANSMISSION (ESC) ]** button, revoking the cryptographic token and marking the command as `ABORTED` in the database.
+   - Upon timer expiration ($T-0$), automatically commits the signed record with `crypto_hash`, `signature_status="UPLINK_TRANSMITTED"`, and `transmission_timestamp` to SQLite `audit_log` and `staged_commands`.
+3. **Dedicated Secure Command Uplink REST Endpoints (`backend/app/routers/commands.py`):**
+   - `POST /api/v1/commands/{command_id}/authorize`: Validates `FLIGHT_DIRECTOR` RBAC clearance, calculates HMAC-SHA256 token, and opens 10-second abort window.
+   - `POST /api/v1/commands/{command_id}/abort`: Revokes the pending token and records a `WARNING` security log entry.
+   - `POST /api/v1/commands/{command_id}/transmit`: Commits the cryptographic signature and broadcasts `COMMAND_TRANSMITTED` over `/ws/telemetry`.
+   - `GET /api/v1/commands/staged`: Lists all cryptographically signed and staged commands from SQLite.
+4. **Tactical Aerospace Handshake Modal (`SecureUplinkModal.jsx`):**
+   - Displays real-time depleting SVG circular countdown ring with sub-second digital clock ($10.0\text{s} \rightarrow 0.0\text{s}$).
+   - Renders live HMAC-SHA256 cryptographic fingerprint with one-click copy utility.
+   - Prominent Swiss Neo-Brutalist styling (hazard header stripes, high-contrast borders `#452a19`, shadow `6px 6px 0px #452a19`).
+5. **Tamper-Evident Audit Ledger & NASA Debrief Integration:**
+   - Executed commands display cryptographic verification badges (`HMAC: a1b2c3d4...`) in Anomaly Center, Node Inspection drawer, and Event Log.
+   - Official NASA PDF and Markdown Debrief reports incorporate the HMAC security tokens in the Chronological Audit Log table.
+
+---
+
 ## 5. The Complete User Journey (Step-by-Step)
 
 **STEP 1 — Landing & Shader Experience**

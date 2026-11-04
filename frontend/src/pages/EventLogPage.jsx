@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Radio,
   Search,
+  Lock,
 } from 'lucide-react';
 
 export const EventLogPage = () => {
@@ -220,6 +221,12 @@ export const EventLogPage = () => {
                 </span>
 
                 <span className="text-[#161514] font-medium leading-snug flex-1">{evt.message}</span>
+                {evt.crypto_hash && (
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200 font-mono font-bold shrink-0 flex items-center gap-1 shadow-xs">
+                    <Lock className="w-2.5 h-2.5 text-purple-700" />
+                    HMAC: {evt.crypto_hash.slice(0, 10)}...
+                  </span>
+                )}
               </div>
             ))
           )}

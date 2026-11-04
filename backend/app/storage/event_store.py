@@ -33,6 +33,9 @@ class AuditLogEntry(BaseModel):
     subsystem: str
     event: str
     telemetry_summary: Optional[Dict[str, Any]] = None
+    crypto_hash: Optional[str] = None
+    signature_status: Optional[str] = None
+    transmission_timestamp: Optional[str] = None
 
 
 def _dump(item: Any) -> Dict[str, Any]:
@@ -256,7 +259,16 @@ class EventStore:
         )
         return event
 
-    def add_audit_entry(self, type_: str, subsystem: str, event: str, telemetry_summary: Optional[Dict[str, Any]] = None):
+    def add_audit_entry(
+        self,
+        type_: str,
+        subsystem: str,
+        event: str,
+        telemetry_summary: Optional[Dict[str, Any]] = None,
+        crypto_hash: Optional[str] = None,
+        signature_status: Optional[str] = None,
+        transmission_timestamp: Optional[str] = None,
+    ):
         now_str = datetime.now().strftime("%H:%M:%S")
         entry = AuditLogEntry(
             id=f"evt_{int(time.time()*1000)}",
@@ -265,7 +277,10 @@ class EventStore:
             type=type_,
             subsystem=subsystem,
             event=event,
-            telemetry_summary=telemetry_summary
+            telemetry_summary=telemetry_summary,
+            crypto_hash=crypto_hash,
+            signature_status=signature_status,
+            transmission_timestamp=transmission_timestamp,
         )
         self._audit_log.insert(0, entry)
         if len(self._audit_log) > 200:

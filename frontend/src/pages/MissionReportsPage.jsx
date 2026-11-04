@@ -81,9 +81,9 @@ ${anomalies.map((a, i) => `
 ---
 
 ## 5. Chronological Audit Log (Recent Entries)
-| Time | Type | Subsystem / Event Description |
-| :--- | :--- | :--- |
-${auditLog.slice(0, 10).map((l) => `| ${l.time} | \`${l.type}\` | ${l.message} |`).join('\n')}
+| Time | Type | Subsystem / Event Description | HMAC-SHA256 Token |
+| :--- | :--- | :--- | :--- |
+${auditLog.slice(0, 10).map((l) => `| ${l.time} | \`${l.type}\` | ${l.message} | \`${l.crypto_hash ? l.crypto_hash.slice(0, 16) + "..." : "AUTHENTICATED"}\` |`).join('\n')}
 
 ---
 

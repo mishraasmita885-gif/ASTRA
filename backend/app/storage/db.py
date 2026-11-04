@@ -48,7 +48,36 @@ def init_db():
                 type TEXT NOT NULL,
                 subsystem TEXT NOT NULL,
                 event TEXT NOT NULL,
-                telemetry_summary TEXT
+                telemetry_summary TEXT,
+                crypto_hash TEXT,
+                signature_status TEXT,
+                transmission_timestamp TEXT
+            );
+        """)
+        # Ensure migration columns in existing audit_log
+        for col in ["crypto_hash", "signature_status", "transmission_timestamp"]:
+            try:
+                cursor.execute(f"ALTER TABLE audit_log ADD COLUMN {col} TEXT;")
+            except Exception:
+                pass
+
+        # Staged Cryptographic Commands Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS staged_commands (
+                command_id TEXT PRIMARY KEY,
+                anomaly_id TEXT,
+                spacecraft_id TEXT DEFAULT 'ASTRA-ALPHA',
+                subsystem TEXT NOT NULL,
+                command_code TEXT NOT NULL,
+                command_name TEXT NOT NULL,
+                severity TEXT DEFAULT 'HIGH',
+                status TEXT NOT NULL,
+                crypto_hash TEXT,
+                signature_status TEXT,
+                authorized_by TEXT,
+                transmission_timestamp TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             );
         """)
 
@@ -153,8 +182,9 @@ def db_save_audit_entry(audit_dict: Dict[str, Any]):
         cursor = conn.cursor()
         cursor.execute("""
             INSERT OR REPLACE INTO audit_log (
-                id, time, timestamp_epoch, type, subsystem, event, telemetry_summary
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                id, time, timestamp_epoch, type, subsystem, event, telemetry_summary,
+                crypto_hash, signature_status, transmission_timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             audit_dict.get("id"),
             audit_dict.get("time"),
@@ -162,12 +192,76 @@ def db_save_audit_entry(audit_dict: Dict[str, Any]):
             audit_dict.get("type"),
             audit_dict.get("subsystem"),
             audit_dict.get("event"),
-            json.dumps(audit_dict.get("telemetry_summary")) if audit_dict.get("telemetry_summary") else None
+            json.dumps(audit_dict.get("telemetry_summary")) if audit_dict.get("telemetry_summary") else None,
+            audit_dict.get("crypto_hash"),
+            audit_dict.get("signature_status"),
+            audit_dict.get("transmission_timestamp")
         ))
         conn.commit()
         conn.close()
     except Exception as e:
         logger.warning(f"Error persisting audit entry to SQLite: {e}")
+
+
+def db_save_staged_command(cmd_dict: Dict[str, Any]):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO staged_commands (
+                command_id, anomaly_id, spacecraft_id, subsystem, command_code, command_name,
+                severity, status, crypto_hash, signature_status, authorized_by,
+                transmission_timestamp, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            cmd_dict.get("command_id"),
+            cmd_dict.get("anomaly_id"),
+            cmd_dict.get("spacecraft_id", "ASTRA-ALPHA"),
+            cmd_dict.get("subsystem", "GENERAL"),
+            cmd_dict.get("command_code", "CMD_DEFAULT"),
+            cmd_dict.get("command_name", "Command"),
+            cmd_dict.get("severity", "HIGH"),
+            cmd_dict.get("status", "STAGED"),
+            cmd_dict.get("crypto_hash"),
+            cmd_dict.get("signature_status", "PENDING_ABORT_WINDOW"),
+            cmd_dict.get("authorized_by"),
+            cmd_dict.get("transmission_timestamp"),
+            cmd_dict.get("created_at"),
+            cmd_dict.get("updated_at")
+        ))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error persisting staged command to SQLite: {e}")
+
+
+def db_get_staged_command(command_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM staged_commands WHERE command_id = ?;", (command_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.warning(f"Error getting staged command {command_id}: {e}")
+        return None
+
+
+def db_list_staged_commands(spacecraft_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        if spacecraft_id:
+            cursor.execute("SELECT * FROM staged_commands WHERE spacecraft_id = ? ORDER BY created_at DESC;", (spacecraft_id,))
+        else:
+            cursor.execute("SELECT * FROM staged_commands ORDER BY created_at DESC;")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.warning(f"Error listing staged commands: {e}")
+        return []
 
 
 def db_list_events() -> List[Dict[str, Any]]:

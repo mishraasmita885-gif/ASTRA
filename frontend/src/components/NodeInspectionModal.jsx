@@ -323,7 +323,18 @@ export const NodeInspectionModal = ({ node, onClose }) => {
                       <span className="font-bold text-[#452a19] block">{cmd.command_name || cmd.action}</span>
                       <span className="text-[10px] text-[#7c5d42]">{cmd.status || 'STAGED FOR TRANSMISSION'}</span>
                     </div>
-                    {cmd.status !== 'APPROVED' && (
+                    {cmd.status === 'APPROVED' ? (
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className="text-emerald-700 font-bold text-[10px] flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" /> UPLINKED
+                        </span>
+                        {cmd.crypto_hash && (
+                          <span className="text-[9px] bg-emerald-100 text-emerald-900 px-1 py-0.2 border border-emerald-300 font-mono font-bold">
+                            HMAC: {cmd.crypto_hash.slice(0, 8)}...
+                          </span>
+                        )}
+                      </div>
+                    ) : (
                       <button
                         onClick={() => approveCommand(cmd.id)}
                         className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] border border-[#452a19] shadow-[1px_1px_0_#452a19] cursor-pointer"
