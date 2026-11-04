@@ -242,8 +242,7 @@ export const MissionProvider = ({ children }) => {
 
   // Predictive Forecasting & Runway Alarm State
   const [forecastChannels, setForecastChannels] = useState({});
-  const [runwayAlarms,
-        faultTreeGraph, setRunwayAlarms] = useState([]);
+  const [runwayAlarms, setRunwayAlarms] = useState([]);
   const [faultTreeGraph, setFaultTreeGraph] = useState({ nodes: [], edges: [], summary: {} });
 
   const wsRef = useRef(null);
@@ -989,6 +988,7 @@ export const MissionProvider = ({ children }) => {
         triggerGeminiAnalysis,
         forecastChannels,
         runwayAlarms,
+        faultTreeGraph,
         syncWithBackend,
         // Multi-Channel Telemetry Matrix
         availableChannels,
