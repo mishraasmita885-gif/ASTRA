@@ -685,6 +685,34 @@ export const MissionProvider = ({ children }) => {
     }, 400);
   }, [syncWithBackend]);
 
+  // Change Simulation Mode (NASA P-3 Replay, Crisis injection, Nominal)
+  const switchSimulationMode = async (mode, startIndex = 5200) => {
+    setActiveScenario(mode);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({
+        action: 'set_mode',
+        mode,
+        start_index: startIndex,
+      }));
+    } else {
+      await setSimulationMode(mode, startIndex);
+    }
+  };
+
+  const triggerCrisis = (scenarioName = 'Solar Array Strike & EPS Bus Failure', mode = 'crisis_solar') => {
+    playAlertChime('critical');
+    switchSimulationMode(mode, 0);
+  };
+
+  const resetToNominal = () => {
+    switchSimulationMode('nominal', 0);
+  };
+
+  const playNasaP3Stream = (startIndex = 5300) => {
+    switchSimulationMode('nasa_p3', startIndex);
+  };
+
+
   // Cryptographic Secure Handshake Abort
   const handleAbortSecureUplink = useCallback(async (commandId, reason = 'Flight Director manual abort') => {
     try {
@@ -973,33 +1001,6 @@ export const MissionProvider = ({ children }) => {
       },
       ...prev,
     ]);
-  };
-
-  // Change Simulation Mode (NASA P-3 Replay, Crisis injection, Nominal)
-  const switchSimulationMode = async (mode, startIndex = 5200) => {
-    setActiveScenario(mode);
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        action: 'set_mode',
-        mode,
-        start_index: startIndex,
-      }));
-    } else {
-      await setSimulationMode(mode, startIndex);
-    }
-  };
-
-  const triggerCrisis = (scenarioName = 'Solar Array Strike & EPS Bus Failure', mode = 'crisis_solar') => {
-    playAlertChime('critical');
-    switchSimulationMode(mode, 0);
-  };
-
-  const resetToNominal = () => {
-    switchSimulationMode('nominal', 0);
-  };
-
-  const playNasaP3Stream = (startIndex = 5300) => {
-    switchSimulationMode('nasa_p3', startIndex);
   };
 
   const switchSpacecraft = useCallback(async (spacecraftId) => {

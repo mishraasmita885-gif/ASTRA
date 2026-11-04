@@ -83,7 +83,7 @@ export const SecureUplinkModal = ({
   const circumference = 263.89;
   const strokeDashoffset = circumference * (1 - progressRatio);
 
-  const handleManualAbort = () => {
+  function handleManualAbort() {
     if (timerRef.current) clearInterval(timerRef.current);
     setIsAborted(true);
     if (onAbort) {
@@ -94,7 +94,7 @@ export const SecureUplinkModal = ({
     }, 1200);
   };
 
-  const handleAutoTransmit = () => {
+  function handleAutoTransmit() {
     setIsTransmitted(true);
     if (onTransmit) {
       onTransmit(uplinkData.command_id, uplinkData.signature);
