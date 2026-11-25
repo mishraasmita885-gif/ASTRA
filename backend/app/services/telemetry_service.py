@@ -50,6 +50,21 @@ class TelemetryService:
 
         self.active_channel: str = "P-3"
         self.active_spacecraft: str = "ASTRA-ALPHA"
+        self._tick_seq: int = 0
+        self._tick_subscribers: List[asyncio.Queue] = []
+        self._recovery_effects: Dict[str, Any] = {
+            "load_shed": False,
+            "backup_solar": False,
+            "bus_regulated": False,
+            "battery_isolated": False,
+            "louver_cooling": False,
+            "adcs_desaturated": False,
+            "hga_relocked": False,
+            "temp_offset": 0.0,
+            "voltage_floor": None,
+            "solar_override": None,
+            "current_cap": None,
+        }
 
         # Constellation Multi-Spacecraft Fleet Nodes
         self.spacecraft_nodes: Dict[str, Dict[str, Any]] = {
@@ -255,9 +270,142 @@ class TelemetryService:
     def reset_detector(self):
         self.detector.reset()
 
+    def subscribe_ticks(self) -> asyncio.Queue:
+        q: asyncio.Queue = asyncio.Queue(maxsize=32)
+        self._tick_subscribers.append(q)
+        return q
+
+    def unsubscribe_ticks(self, q: asyncio.Queue):
+        if q in self._tick_subscribers:
+            self._tick_subscribers.remove(q)
+
+    def _publish_tick(self, state: Dict[str, Any]):
+        self._tick_seq += 1
+        snapshot = dict(state)
+        snapshot["_tick_seq"] = self._tick_seq
+        for q in list(self._tick_subscribers):
+            try:
+                if q.full():
+                    q.get_nowait()
+                q.put_nowait(snapshot)
+            except Exception:
+                pass
+
+    def _reset_recovery_effects(self):
+        self._recovery_effects = {
+            "load_shed": False,
+            "backup_solar": False,
+            "bus_regulated": False,
+            "battery_isolated": False,
+            "louver_cooling": False,
+            "adcs_desaturated": False,
+            "hga_relocked": False,
+            "temp_offset": 0.0,
+            "voltage_floor": None,
+            "solar_override": None,
+            "current_cap": None,
+        }
+
+    def apply_recovery_command(self, command_code: str, spacecraft_id: str = "ASTRA-ALPHA") -> Dict[str, Any]:
+        """
+        Applies the physical spacecraft recovery effect of an uplinked runbook command
+        to TelemetryService's live telemetry generator.
+        """
+        code = str(command_code or "").strip().upper()
+        effect_summary = f"Command {code} uplinked to {spacecraft_id}."
+
+        if code in ("CMD_SHED_NON_ESSENTIAL", "CMD_SHED_AUX_BUS"):
+            self._recovery_effects["load_shed"] = True
+            self._recovery_effects["current_cap"] = 7.4
+            self._recovery_effects["voltage_floor"] = max(self._recovery_effects.get("voltage_floor") or 0.0, 21.4)
+            effect_summary = "Non-essential payload loads shed; current draw capped <= 7.4 A and bus sag arrested."
+        elif code in ("CMD_DEPLOY_SOLAR_B", "CMD_ENGAGE_SOLAR_BACKUP"):
+            self._recovery_effects["backup_solar"] = True
+            self._recovery_effects["solar_override"] = 92.8
+            self._recovery_effects["voltage_floor"] = max(self._recovery_effects.get("voltage_floor") or 0.0, 23.9)
+            effect_summary = "Starboard solar wing P-1 engaged; array output recovering > 90%."
+        elif code in ("CMD_STABILIZE_BUS_P3", "CMD_ENGAGE_SHUNT_REG", "CMD_VERIFY_BUS_DIODE_TIE"):
+            self._recovery_effects["bus_regulated"] = True
+            self._recovery_effects["voltage_floor"] = 24.4
+            self._recovery_effects["solar_override"] = self._recovery_effects.get("solar_override") or 95.6
+            self._recovery_effects["current_cap"] = 4.6
+            effect_summary = "S3R shunt regulator tied to primary bus P-3; bus stabilized in 23.5–28.0 V envelope."
+        elif code in ("CMD_ISOLATE_CELL_BANK_3", "CMD_ISOLATE_BATTERY"):
+            self._recovery_effects["battery_isolated"] = True
+            self._recovery_effects["current_cap"] = 6.2
+            self._recovery_effects["temp_offset"] = -28.0
+            self._recovery_effects["voltage_floor"] = max(self._recovery_effects.get("voltage_floor") or 0.0, 22.8)
+            effect_summary = "Li-Ion Cell Bank 3 isolated; discharge current capped <= 6.2 A."
+        elif code in ("CMD_OPEN_RADIATOR_LOUVERS", "CMD_TCS_LOOP_PURGE"):
+            self._recovery_effects["louver_cooling"] = True
+            self._recovery_effects["temp_offset"] = -66.0
+            effect_summary = "Emergency ammonia bypass loop & louvers 100% open; core thermal cooling active."
+        elif code in ("CMD_MOMENTUM_DUMP_RCS", "CMD_DESAT_WHEELS"):
+            self._recovery_effects["adcs_desaturated"] = True
+            effect_summary = "RCS & magnetorquer momentum dump initiated; reaction wheel drift returning nominal."
+        elif code in ("CMD_HGA_REPOINT_DSN", "CMD_LOCK_SBAND"):
+            self._recovery_effects["hga_relocked"] = True
+            effect_summary = "High-Gain Antenna re-pointed to DSN Madrid-63; S-Band carrier lock restored."
+
+        return {
+            "command_code": code,
+            "spacecraft_id": spacecraft_id,
+            "effect_summary": effect_summary,
+        }
+
+    def finalize_runbook_nominal_recovery(self, reason: str = "Automated contingency runbook verified nominal recovery."):
+        """Restores nominal telemetry mode once all recovery gates verify clean."""
+        self.set_mode("nominal", 0)
+        for ev in event_store.list_events():
+            if ev.status in ["ANOMALY_DETECTED", "UNDER_REVIEW", "APPROVED"]:
+                event_store.resolve_event(ev.event_id, reason)
+
+    def get_channel_measurement(self, channel: str, metric_key: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Resolve an instantaneous live reading and physical engineering unit from current_state
+        for any target channel in the 82-channel telemetry matrix.
+        """
+        ch = str(channel or "P-3").strip().upper()
+        state = self.current_state
+
+        # Explicit metric override if provided by runbook step
+        explicit_units = {
+            "voltage": ("V", float(state.get("voltage", 24.1))),
+            "temperature": ("°C", float(state.get("temperature", 15.2))),
+            "battery_pct": ("%", float(state.get("battery_pct", 98.4))),
+            "solar_input": ("%", float(state.get("solar_input", 96.4))),
+            "current_draw": ("A", float(state.get("current_draw", 4.2))),
+            "adcs_drift": ("°/hr", float(state.get("adcs_drift", 0.02))),
+            "link_snr": ("dBm", float(state.get("link_snr", 14.2))),
+            "packet_rate": ("pkts/s", float(state.get("packet_rate", 10.0))),
+            "p3_value": ("units", float(state.get("p3_value", 0.12))),
+            "anomaly_score": ("score", float(state.get("anomaly_score", 0.02))),
+        }
+        if metric_key and metric_key in explicit_units:
+            unit, val = explicit_units[metric_key]
+            return {"channel": ch, "metric_key": metric_key, "value": round(val, 4), "unit": unit}
+
+        # Dynamic NASA 82-channel prefix mapping
+        if ch == "P-1":
+            return {"channel": ch, "metric_key": "solar_input", "value": round(float(state.get("solar_input", 96.4)), 2), "unit": "%"}
+        if ch in ("P-2", "P-3"):
+            return {"channel": ch, "metric_key": "voltage", "value": round(float(state.get("voltage", 24.1)), 2), "unit": "V"}
+        if ch.startswith("P-"):
+            return {"channel": ch, "metric_key": "battery_pct", "value": round(float(state.get("battery_pct", 98.4)), 2), "unit": "%"}
+        if ch.startswith("T-"):
+            return {"channel": ch, "metric_key": "temperature", "value": round(float(state.get("temperature", 15.2)), 2), "unit": "°C"}
+        if ch.startswith("A-"):
+            return {"channel": ch, "metric_key": "adcs_drift", "value": round(float(state.get("adcs_drift", 0.02)), 3), "unit": "°/hr"}
+        if ch.startswith("C-"):
+            return {"channel": ch, "metric_key": "link_snr", "value": round(float(state.get("link_snr", 14.2)), 2), "unit": "dBm"}
+        if ch.startswith("D-"):
+            return {"channel": ch, "metric_key": "current_draw", "value": round(float(state.get("current_draw", 4.2)), 2), "unit": "A"}
+        return {"channel": ch, "metric_key": "p3_value", "value": round(float(state.get("p3_value", 0.12)), 4), "unit": "units"}
+
     def set_mode(self, mode: str, start_index: int = 0):
         """Change streaming mode: nominal, nasa_p3, crisis"""
         self.mode = mode
+        self._reset_recovery_effects()
         if mode == "nasa_p3":
             self.p3_index = max(0, min(start_index, self.p3_total_points - 1))
             self.detector.reset()
@@ -416,6 +564,16 @@ class TelemetryService:
                 "threshold": self.detector.threshold
             }
 
+            eff = self._recovery_effects
+            if eff.get("current_cap") is not None:
+                self.current_state["current_draw"] = round(min(self.current_state["current_draw"], eff["current_cap"]), 2)
+            if eff.get("solar_override") is not None:
+                self.current_state["solar_input"] = round(eff["solar_override"] + random.uniform(-0.6, 0.6), 2)
+            if eff.get("voltage_floor") is not None:
+                self.current_state["voltage"] = round(max(self.current_state["voltage"], eff["voltage_floor"]) + random.uniform(-0.05, 0.15), 2)
+            if eff.get("temp_offset"):
+                self.current_state["temperature"] = round(max(15.2, self.current_state["temperature"] + eff["temp_offset"]), 2)
+
         elif self.mode.startswith("crisis"):
             noise = (random.random() - 0.5) * 0.4
             
@@ -480,6 +638,24 @@ class TelemetryService:
                 "mode": self.mode,
                 "threshold": self.detector.threshold
             }
+
+            # Apply any active contingency runbook physical recovery modifiers
+            eff = self._recovery_effects
+            if eff.get("current_cap") is not None:
+                self.current_state["current_draw"] = round(min(self.current_state["current_draw"], eff["current_cap"]) + random.uniform(-0.12, 0.12), 2)
+            if eff.get("solar_override") is not None:
+                self.current_state["solar_input"] = round(eff["solar_override"] + random.uniform(-0.8, 0.8), 2)
+            if eff.get("voltage_floor") is not None:
+                v_base = max(self.current_state["voltage"], eff["voltage_floor"])
+                self.current_state["voltage"] = round(v_base + random.uniform(-0.08, 0.18), 2)
+            if eff.get("temp_offset"):
+                adjusted_t = max(15.2, self.current_state["temperature"] + eff["temp_offset"])
+                self.current_state["temperature"] = round(adjusted_t + random.uniform(-0.25, 0.25), 2)
+            if eff.get("adcs_desaturated"):
+                self.current_state["adcs_drift"] = round(0.022 + random.uniform(-0.004, 0.006), 3)
+            if eff.get("hga_relocked"):
+                self.current_state["link_snr"] = round(14.0 + random.uniform(-0.2, 0.3), 2)
+                self.current_state["packet_rate"] = 10.0
 
         else:
             # Nominal telemetry
@@ -607,6 +783,7 @@ class TelemetryService:
         self.current_state["fleet_nodes"] = self.spacecraft_nodes
         self.current_state["isl_links"] = self.isl_links
 
+        self._publish_tick(self.current_state)
         return self.current_state
 
     def set_spacecraft(self, spacecraft_id: str) -> bool:

@@ -9,6 +9,7 @@ from app.services.telemetry_service import telemetry_service
 from app.services.orbital_service import orbital_service
 from app.services.forecasting_service import forecasting_service
 from app.services.fta_service import fta_service
+from app.services.runbook_engine import runbook_engine
 from app.storage.event_store import event_store
 
 logger = logging.getLogger("astra.websocket")
@@ -62,7 +63,8 @@ async def telemetry_stream_endpoint(websocket: WebSocket, spacecraft_id: str = N
             "orbital_state": initial_orbital,
             "spacecraft_id": telemetry_service.active_spacecraft,
             "fleet_summary": telemetry_service.get_fleet_summary(),
-            "events_count": len(event_store.list_events())
+            "events_count": len(event_store.list_events()),
+            "runbook_executions": runbook_engine.list_executions(limit=10),
         }))
 
         while True:

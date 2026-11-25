@@ -24,6 +24,8 @@ import {
   Plus,
   Volume2,
   VolumeX,
+  GitBranch,
+  Play,
 } from 'lucide-react';
 
 export const AnomalyCenterPage = () => {
@@ -49,6 +51,10 @@ export const AnomalyCenterPage = () => {
     stopAllVoiceAudio,
     anomalyCenterTab,
     setAnomalyCenterTab,
+    setActiveTab: navigatePage,
+    runbooks,
+    launchRunbook,
+    hasCommandAuthority,
   } = useMission();
 
   const activeTab = anomalyCenterTab || 'inspector';
@@ -76,6 +82,40 @@ export const AnomalyCenterPage = () => {
     },
   });
   const [isMetricsLoading, setIsMetricsLoading] = useState(false);
+  const [runbookStagingBusy, setRunbookStagingBusy] = useState(false);
+
+  const recommendedRunbook = React.useMemo(() => {
+    if (!runbooks || runbooks.length === 0) return null;
+    const ch = String(selectedAnomaly?.rawEvent?.channel || selectedAnomaly?.subsystem || '').toUpperCase();
+    const diagText = String(selectedAnomaly?.geminiDiagnosis?.rootCause || selectedAnomaly?.summary || '').toUpperCase();
+
+    if (ch.includes('BATTERY') || ch.startsWith('T-') || diagText.includes('THERMAL') || diagText.includes('BATTERY')) {
+      return runbooks.find((r) => r.id === 'RB-TCS-BATT-01') || runbooks.find((r) => r.subsystem === 'TCS') || runbooks[0];
+    }
+    if (ch.includes('ADCS') || ch.startsWith('A-') || diagText.includes('ATTITUDE') || diagText.includes('GYRO')) {
+      return runbooks.find((r) => r.id === 'RB-ADCS-DESAT-01') || runbooks.find((r) => r.subsystem === 'ADCS') || runbooks[0];
+    }
+    if (ch.includes('SOLAR') || diagText.includes('SOLAR') || diagText.includes('PHOTOVOLTAIC')) {
+      return runbooks.find((r) => r.id === 'RB-EPS-SOLAR-01') || runbooks.find((r) => r.subsystem === 'EPS') || runbooks[0];
+    }
+    if (ch.includes('P-3') || ch.startsWith('P-')) {
+      return runbooks.find((r) => r.id === 'RB-EPS-BUS-01') || runbooks.find((r) => r.subsystem === 'EPS') || runbooks[0];
+    }
+    return runbooks[0];
+  }, [runbooks, selectedAnomaly]);
+
+  const handleLaunchRecommendedRunbook = async () => {
+    if (!recommendedRunbook || !hasCommandAuthority) return;
+    setRunbookStagingBusy(true);
+    try {
+      await launchRunbook(recommendedRunbook.id);
+      navigatePage('runbooks');
+    } catch (err) {
+      console.warn('Recommended runbook launch failed:', err);
+    } finally {
+      setRunbookStagingBusy(false);
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -532,6 +572,49 @@ export const AnomalyCenterPage = () => {
                       Autonomous Execution:{' '}
                       <strong className="text-red-600 font-bold">PROHIBITED</strong>
                     </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Stage Recommended Contingency Runbook Action Card */}
+              {recommendedRunbook && (
+                <div className="rounded-xl p-4 bg-[#ebdccb] border-2 border-[#452a19] shadow-[3px_3px_0px_#452a19] flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <GitBranch className="w-4 h-4 text-[#452a19] shrink-0" />
+                      <span className="font-mono text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 bg-[#fea619] text-[#24140b] border border-[#452a19] rounded">
+                        Stage Recommended Runbook
+                      </span>
+                      <span className="font-mono text-[10px] font-bold text-[#5c3d28]">
+                        {recommendedRunbook.id} • {recommendedRunbook.steps?.length || 0} Telemetry-Gated Steps
+                      </span>
+                    </div>
+                    <h4 className="font-display font-bold text-sm text-[#161514]">
+                      {recommendedRunbook.title}
+                    </h4>
+                    <p className="font-mono text-[11px] text-[#452a19] leading-snug">
+                      {recommendedRunbook.description}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => navigatePage('runbooks')}
+                      className="px-3 py-2 rounded-xl bg-[#f7f4ee] hover:bg-white text-[#24140b] border-2 border-[#452a19] font-mono text-xs font-bold cursor-pointer"
+                    >
+                      Open Console
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLaunchRecommendedRunbook}
+                      disabled={!hasCommandAuthority || runbookStagingBusy}
+                      className="px-3.5 py-2 rounded-xl bg-[#452a19] hover:bg-[#5c3822] text-[#fbf7f0] border-2 border-[#24140b] shadow-[2px_2px_0px_#24140b] font-mono text-xs font-bold uppercase flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                      title={hasCommandAuthority ? 'Launch telemetry-gated recovery runbook' : 'Flight Director clearance required'}
+                    >
+                      <Play className="w-3.5 h-3.5 text-[#fea619]" />
+                      <span>{runbookStagingBusy ? 'Launching...' : 'Execute Runbook'}</span>
+                    </button>
                   </div>
                 </div>
               )}

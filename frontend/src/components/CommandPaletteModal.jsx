@@ -20,6 +20,7 @@ import {
   Sliders,
   Layers,
   Globe,
+  GitBranch,
 } from 'lucide-react';
 
 export const CommandPaletteModal = ({ isOpen, onClose }) => {
@@ -140,6 +141,18 @@ export const CommandPaletteModal = ({ isOpen, onClose }) => {
         icon: Sparkles,
         action: () => {
           setActiveTab('ai_assistant');
+          onClose();
+        },
+      },
+      {
+        id: 'nav-runbooks',
+        category: 'NAVIGATION',
+        title: 'Automated Contingency Runbooks & Playbooks',
+        subtitle: 'Multi-step telemetry-gated recovery state machines and custom builder',
+        icon: GitBranch,
+        badge: 'PLAYBOOKS',
+        action: () => {
+          setActiveTab('runbooks');
           onClose();
         },
       },

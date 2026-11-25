@@ -16,10 +16,11 @@ import {
   ChevronsLeft,
   ChevronsRight,
   FileCode2,
+  GitBranch,
 } from 'lucide-react';
 
 export const Sidebar = () => {
-  const { activeTab, setActiveTab, isCrisis, isSidebarCollapsed, toggleSidebar } = useMission();
+  const { activeTab, setActiveTab, isCrisis, isSidebarCollapsed, toggleSidebar, activeRunbookExecution } = useMission();
   const [hoveredToggle, setHoveredToggle] = useState(false);
   const [hoveredItem, setHoveredItem] = useState(null);
 
@@ -37,6 +38,17 @@ export const Sidebar = () => {
       badgeColor: isCrisis ? 'bg-red-500 text-white' : 'bg-[#fea619] text-[#24140b]',
     },
     { id: 'ai_assistant', label: 'AI Copilot', icon: Sparkles },
+    {
+      id: 'runbooks',
+      label: 'Runbooks',
+      icon: GitBranch,
+      badge:
+        activeRunbookExecution &&
+        (activeRunbookExecution.status === 'RUNNING' || activeRunbookExecution.status === 'VERIFYING_TELEMETRY')
+          ? 'LIVE'
+          : null,
+      badgeColor: 'bg-[#fea619] text-[#24140b]',
+    },
     { id: 'events', label: 'Event Log', icon: ScrollText },
     { id: 'simulation', label: 'Simulation', icon: FlaskConical },
     { id: 'reports', label: 'Reports', icon: FileText },

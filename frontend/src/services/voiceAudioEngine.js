@@ -362,6 +362,7 @@ export function resolveSpokenChannel(rawText, availableChannels = []) {
 const NAVIGATION_INTENTS = [
   { tab: 'anomalies', subTab: 'fault-tree', label: 'Fault Tree Analysis', phrases: ['fault tree', 'cascading graph', 'failure tree', 'failure graph'] },
   { tab: 'anomalies', subTab: 'inspector', label: 'Anomaly Center', phrases: ['anomaly center', 'anomalies', 'anomaly page', 'anomaly detection'] },
+  { tab: 'runbooks', label: 'Contingency Runbooks', phrases: ['runbooks', 'contingency runbooks', 'playbooks', 'playbook console'] },
   { tab: 'telemetry', label: 'Live Telemetry', phrases: ['live telemetry', 'telemetry page', 'telemetry console', 'waveforms'] },
   { tab: 'subsystems', label: 'Subsystems', phrases: ['subsystems', 'subsystem monitor', 'avionics'] },
   { tab: 'events', label: 'Event Log', phrases: ['event log', 'audit log', 'audit trail', 'mission log'] },

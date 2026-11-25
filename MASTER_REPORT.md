@@ -27,7 +27,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 1. Why Does ASTRA Exist?
 2. The Big Idea (The Solution)
 3. System Architecture
-4. Every Feature Explained (Features 1 through 23)
+4. Every Feature Explained (Features 1 through 24)
 5. The Complete User Journey (Step-by-Step)
 6. The Technology Stack
 7. The AI Brain — Gemini Multi-Model Cascade & Aerospace Copilot
@@ -36,7 +36,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 10. Human-in-the-Loop Safety & Role-Based Access Control (RBAC)
 11. Persistent Database Architecture (SQLite astra.db & JSON Store)
 12. The Design System & Dual-View Print Architecture
-13. All 12 Pages, Modals, Drawers, and Voice HUD Explained
+13. All 13 Pages, Modals, Drawers, and Voice HUD Explained
 14. How Commands Work (Approve / Reject Flow)
 15. Deployment Architecture
 16. File Structure
@@ -107,9 +107,10 @@ LAYER 3: HUMAN ACTION (Fix the Problem Safely)
 +------------------------------------------------------------------+
 |               FRONTEND  (React 19 + Vite Web App)                |
 |                                                                  |
-|  [Welcome] [Mission Overview] [Fleet Mesh] [Live Telemetry]      |
-|  [Anomaly Center] [Subsystems] [AI Assistant] [Simulation]       |
-|  [Event Log] [Mission Reports] [Settings] [Command Palette]      |
+|  [Welcome] [Mission Overview] [Fleet Mesh] [Orbital Track]       |
+|  [Live Telemetry] [Anomaly Center] [Subsystems] [Runbooks]       |
+|  [AI Assistant] [Simulation] [Event Log] [Mission Reports]       |
+|  [Settings] [Command Palette] [Voice HUD] [Secure/HITL Modals]   |
 |                                                                  |
 |      [WebSocket - real-time]      [REST API - requests]          |
 +------------------------------------------------------------------+
@@ -118,16 +119,15 @@ LAYER 3: HUMAN ACTION (Fix the Problem Safely)
 +------------------------------------------------------------------+
 |           BACKEND  (Python FastAPI Server + SQLite WAL)          |
 |                                                                  |
-|  WebSocket: /ws/telemetry?spacecraft_id= (full-duplex 1.2s tick) |
-|  REST: /api/v1/telemetry/snapshot & /matrix                      |
-|  REST: /api/v1/fleet/status, /isl-topology, /nodes, /switch      |
-|  REST: /api/v1/events & /events/{id}/analyze                     |
-|  REST: /api/v1/copilot/chat & /reports/generate                  |
+|  WebSocket: /ws/telemetry (1.2s ticks, FTA, Forecast, RUNBOOK)   |
+|  REST: /api/telemetry, /simulation/channels, /audit-log (POST)   |
+|  REST: /api/fleet/*, /orbital/*, /forecasting/*, /fault-tree/*   |
+|  REST: /api/events/{id}/analyze, /commands/*, /api/v1/runbooks/* |
 |                                                                  |
 |       TelemetryService (Multi-Craft Concurrency Engine)          |
 |  - Concurrently simulates 3 spacecraft (246 channels total)      |
-|  - Replays NASA P-3 dataset on demand (Step 5,300 -> 6,656)      |
-|  - Simulates dynamic ISL mesh latency (12-45ms) and jitter       |
+|  - Replays NASA P-3 dataset & applies recovery command effects   |
+|  - Streams live ticks to Forecasting, FTA & Async RunbookEngine  |
 |  - Runs P3AnomalyDetector on every active data point             |
 |                                                                  |
 |   P3AnomalyDetector          GeminiDiagnosisService              |
@@ -138,7 +138,7 @@ LAYER 3: HUMAN ACTION (Fix the Problem Safely)
               |                              |
               v                              v
    SQLite Relational DB            Google Gemini AI Cloud API
-  (astra.db: 6 WAL Tables)        (Flash, Pro, Lite Cascades)
+  (astra.db: 9 WAL Tables)        (Flash, Pro, Lite Cascades)
 ```
 
 ### Constellation Fleet & Orbital ISL Mesh Architecture
@@ -166,7 +166,7 @@ graph TD
 
 | Part | What It Is | Where It Runs |
 |------|-----------|--------------|
-| Frontend | The visual website the user sees (11 Pages + 1 Modal) | Browser (any modern device) |
+| Frontend | The visual website the user sees (13 Pages + 4 Modals/Drawers + Voice HUD) | Browser (any modern device) |
 | Backend | The processing engine that computes telemetry & detector math | Server (Python 3.11+ / Render.com) |
 | Communication | Full-Duplex WebSocket + REST API | Real-time low-latency connection |
 
@@ -596,6 +596,30 @@ This means ASTRA **never fails** to produce a diagnosis.
 
 ---
 
+### Feature 24: Automated Contingency Runbooks & Multi-Step Playbooks
+**What it is:** An asynchronous, telemetry-gated **Contingency Runbooks & Multi-Step Playbooks** execution engine (`runbook_engine.py`) and management console (`RunbooksPage.jsx`). Flight Directors can launch multi-step spacecraft recovery sequences (such as *Emergency Solar Reconstitution Sequence*, *Battery Thermal Runaway Isolation*, *Bus Undervoltage Load Shedding*, and *ADCS Wheel Desaturation & S-Band Relock*) or author custom playbooks targeting any channel from the 82-channel NASA matrix.
+
+**CRITICAL ARCHITECTURAL GUARANTEE:** ZERO HARDCODED TIMERS OR FAKE PASS/FAIL STUBS. Every verification gate subscribes directly to live frames from `TelemetryService`, evaluating real-time sensor readings against numeric `>`, `<`, or `BETWEEN` envelopes across 3 consecutive ticks before advancing to the next step.
+
+**Key Technical Capabilities:**
+1. **Persistent Playbook & Execution State Schema (`backend/app/storage/db.py`):**
+   - Stores playbook definitions in `contingency_runbooks` (`id`, `title`, `subsystem`, `description`, `steps_json`) and live execution records in `runbook_executions` (`execution_id`, `runbook_id`, `status`, `current_step`, `authorized_by`, `started_at`, `completed_at`, `step_states_json`, `failure_reason`) inside SQLite `astra.db` (WAL mode).
+2. **Asynchronous Telemetry-Gated State Machine (`backend/app/services/runbook_engine.py`):**
+   - Enforces `FLIGHT_DIRECTOR` RBAC authorization before launching or aborting playbooks (`HTTP 403` and audit log `WARNING` for `TELEMETRY_OBSERVER`).
+   - Dispatches each step's recovery command (`apply_recovery_command()` in `TelemetryService`), logs `RUNBOOK_STEP_EXECUTED`, and enters `VERIFYING_TELEMETRY`.
+   - Subscribes to live `TelemetryService` tick events: verifies threshold stabilization across consecutive ticks within `timeout_seconds`, logging `RUNBOOK_GATE_VERIFIED` with exact measured readings before advancing—or transitioning immediately to `HALTED_VERIFICATION_FAILED` (`CRITICAL` audit entry) if telemetry fails to stabilize before timeout.
+   - Broadcasts live `RUNBOOK_UPDATE` frames over `/ws/telemetry` on every step change and verification tick.
+3. **Runbook Console, Playbook Builder & Anomaly Center Integration:**
+   - Dedicated `RunbooksPage.jsx` displays the live step-by-step pipeline (`PENDING`, `TRANSMITTING`, `VERIFYING TELEMETRY GATE`, `VERIFIED & PASSED`, `FAILED / HALTED`), real-time target envelope readout (`[X/3 Ticks]`), **[ ABORT PLAYBOOK ]** emergency stop button, and **Create New Playbook** modal.
+   - `AnomalyCenterPage.jsx` embeds a **"Stage Recommended Runbook"** action card matching active incidents to the appropriate playbook, while `EventLogPage.jsx` (`RUNBOOK` filter) and `MissionReportsPage.jsx` (Debrief & A4 PDF print view) preserve the permanent execution trail.
+4. **REST API Endpoints (`backend/app/routers/runbooks.py`):**
+   - `GET /api/v1/runbooks` & `/api/runbooks`: Lists seeded/custom runbooks and execution history.
+   - `POST /api/v1/runbooks`: Persists a new custom multi-step playbook (`FLIGHT_DIRECTOR` clearance enforced).
+   - `POST /api/v1/runbooks/{runbook_id}/execute`: Enforces RBAC and starts the async state machine.
+   - `POST /api/v1/runbooks/executions/{execution_id}/abort`: Halts an active execution immediately and logs `RUNBOOK_ABORTED`.
+
+---
+
 ## 5. The Complete User Journey (Step-by-Step)
 
 **STEP 1 — Landing & Shader Experience**
@@ -668,6 +692,11 @@ The operator clicks the **Voice Comms Transceiver** microphone button in the top
 3. Speaking *"Run AI diagnostic"* executes Gemini reasoning on the active incident and reads the resulting root cause and recommended countermeasure aloud.
 4. If the operator speaks *"Approve all commands"*, ASTRA enforces Safety Rule 1.1: `TELEMETRY_OBSERVER` users are denied with an acoustic caution alert, while `FLIGHT_DIRECTOR` users are presented with the **HITL Voice Authorization Interlock Modal** (`VoiceApprovalConfirmModal.jsx`) before any uplink proceeds. Every voice action is permanently committed to SQLite `astra.db` tagged with `[SOURCE: VOICE_COMMAND]`.
 
+**STEP 17 — Automated Contingency Runbook & Telemetry-Gated Recovery**
+When an anomaly or crisis requires multi-step coordinated recovery, the Flight Director clicks **"Stage Recommended Runbook"** in Anomaly Center or navigates to **Runbooks** (`RunbooksPage.jsx`):
+1. Launching a playbook (e.g., *Emergency Solar Reconstitution Sequence* `RB-EPS-SOLAR-01`) initiates Step 1 (`CMD_SHED_NON_ESSENTIAL`) and pauses at `VERIFYING_TELEMETRY`, evaluating live WebSocket readings from `TelemetryService` until target thresholds hold for 3 consecutive ticks.
+2. Once verified, `RUNBOOK_GATE_VERIFIED` is committed to `astra.db` and Step 2 (`CMD_DEPLOY_SOLAR_B`) automatically engages, followed by Step 3 (`CMD_STABILIZE_BUS_P3`) until spacecraft telemetry stabilizes and the playbook completes (`COMPLETED`), or halts automatically (`HALTED_VERIFICATION_FAILED`) if telemetry fails to stabilize before timeout.
+
 ---
 
 ## 6. The Technology Stack
@@ -700,6 +729,7 @@ The operator clicks the **Voice Comms Transceiver** microphone button in the top
 | **Rolling OLS Regression Engine** | 60-tick rolling sliding-window Ordinary Least Squares algorithm for time-to-breach forecasting |
 | **Fault Tree Graph Engine** | Topological failure cascade resolution traversing 4-layer subsystem dependency trees |
 | **HMAC-SHA256 Cryptographic Engine** | Dynamic token generation, 10-second abort window management, and tamper-evident signing |
+| **Async Runbook State Machine** | Telemetry-gated multi-step playbook executor (`runbook_engine.py`) subscribed to `TelemetryService` ticks |
 | **SQLite3 (astra.db)** | Crash-resilient relational database operating in Write-Ahead Logging (WAL) mode |
 | **JSON File Store** | Zero-latency disk-backed fallback ledger (`event_store.json`) for audit events |
 | **Pydantic v2** | Strict schema validation, data serialization, and structured AI response parsing |
@@ -987,6 +1017,32 @@ CREATE TABLE IF NOT EXISTS isl_links (
     packet_loss_pct REAL NOT NULL, -- Packet drop percentage
     updated_at TEXT NOT NULL     -- ISO8601 Timestamp
 );
+
+-- Automated Contingency Runbooks Table
+CREATE TABLE IF NOT EXISTS contingency_runbooks (
+    id TEXT PRIMARY KEY,         -- e.g. RB-EPS-SOLAR-01
+    title TEXT NOT NULL,
+    subsystem TEXT NOT NULL,     -- EPS, TCS, ADCS, TT&C
+    description TEXT NOT NULL,
+    steps_json TEXT NOT NULL,    -- Ordered steps with channel thresholds & timeout
+    created_at TEXT,
+    updated_at TEXT
+);
+
+-- Contingency Runbook Executions Table
+CREATE TABLE IF NOT EXISTS runbook_executions (
+    execution_id TEXT PRIMARY KEY,
+    runbook_id TEXT NOT NULL,
+    runbook_title TEXT,
+    spacecraft_id TEXT DEFAULT 'ASTRA-ALPHA',
+    status TEXT NOT NULL,        -- STAGED, RUNNING, VERIFYING_TELEMETRY, COMPLETED, HALTED_VERIFICATION_FAILED, ABORTED
+    current_step INTEGER DEFAULT 1,
+    authorized_by TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    completed_at TEXT,
+    step_states_json TEXT,
+    failure_reason TEXT
+);
 ```
 
 ### 2. Disk-Backed Fallback Ledger (`event_store.json`)
@@ -1034,7 +1090,7 @@ A standout feature of ASTRA is its **Dual-View Print Engine** built for official
 
 ---
 
-## 13. All 12 Pages, Modals, Drawers, and Voice HUD Explained
+## 13. All 13 Pages, Modals, Drawers, and Voice HUD Explained
 
 ### Page 1: Welcome Page (`WelcomePage.jsx`)
 The immersive operational threshold of ASTRA.
@@ -1129,6 +1185,12 @@ Operational configuration, security clearance, and system diagnostics.
 - **Telemetry Sampling Rate:** Configurable WebSocket telemetry delivery interval (0.5s to 3.0s).
 - **Audio Alarm Synthesis:** Toggle audible alarm chimes for critical telemetry deviations.
 - **System Health Diagnostics:** Live check of backend connection status, Gemini API latency, and SQLite database connectivity.
+
+### Page 13: Contingency Runbooks & Playbooks Console (`RunbooksPage.jsx`)
+Telemetry-gated multi-step spacecraft recovery state machine and playbook authoring console.
+- **Live Step-by-Step State Machine Tracker:** Displays sequential steps (`PENDING`, `TRANSMITTING`, `VERIFYING TELEMETRY GATE`, `VERIFIED & PASSED`, `FAILED / HALTED`), live WebSocket channel readings against target threshold bounds (`[X/3 Ticks]`), remaining timeout countdown, and emergency **[ ABORT PLAYBOOK ]** control.
+- **Playbook Library & Builder:** Browse seeded recovery sequences (`RB-EPS-SOLAR-01`, `RB-TCS-BATT-01`, `RB-EPS-BUS-01`, `RB-ADCS-DESAT-01`) or compose custom playbooks targeting any channel in the 82-channel matrix.
+- **RBAC Security Enforcement:** Enforces `FLIGHT_DIRECTOR` clearance for execution, abort, and authoring, displaying explicit read-only locks in `TELEMETRY_OBSERVER` mode.
 
 ### Global Modal: Universal Command Palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>) (`CommandPaletteModal.jsx`)
 Mission-wide keyboard-driven command interface accessible from any page.
@@ -1306,6 +1368,7 @@ d:\Competition\Hackspire\
 │       │   ├── SimulationPage.jsx       Crisis simulation testbed and safety interlock
 │       │   ├── EventLogPage.jsx         Chronological audit trail and timeline with HMAC & VOICE badges
 │       │   ├── MissionReportsPage.jsx   Dual-view flight audit & official NASA PDF debrief
+│       │   ├── RunbooksPage.jsx         Automated contingency runbooks & telemetry-gated playbooks
 │       │   └── SettingsPage.jsx         RBAC clearance switcher, audio/TTS tests & diagnostics
 │       │
 │       ├── components/
@@ -1359,17 +1422,19 @@ d:\Competition\Hackspire\
         │   ├── orbital.py               Real-time SGP4 orbital mechanics & DSN REST endpoints
         │   ├── forecasting.py           Time-series forecasting & runway horizon alarm endpoints
         │   ├── fta.py                   Fault Tree Analysis & cascading failure graph endpoints
-        │   └── commands.py              Cryptographic command uplink & abort handshake endpoints
+        │   ├── commands.py              Cryptographic command uplink & abort handshake endpoints
+        │   └── runbooks.py              Contingency runbooks, custom builder & async execution API
         │
         ├── services/
         │   ├── telemetry_service.py     TelemetryService: 3-spacecraft 82-channel matrix & ISL jitter
         │   ├── orbital_service.py       SGP4 orbital propagator, CelesTrak TLE sync, and DSN geometry
         │   ├── forecasting_service.py   Rolling 60-tick OLS time-series regression and breach runway
         │   ├── fta_service.py           Topological cascading failure resolution & fault tree engine
-        │   └── crypto_service.py        HMAC-SHA256 signing utility & 10s countdown abort tracker
+        │   ├── crypto_service.py        HMAC-SHA256 signing utility & 10s countdown abort tracker
+        │   └── runbook_engine.py        Async telemetry-gated multi-step playbook state machine
         │
         └── storage/
-            ├── db.py                    SQLite engine initialization with WAL mode & 7 tables
+            ├── db.py                    SQLite engine initialization with WAL mode & 9 tables
             ├── astra.db                 Persistent SQLite relational database file
             ├── event_store.py           In-memory event cache & JSON sync layer
             └── event_store.json         Disk-backed fallback JSON audit ledger
@@ -1390,12 +1455,13 @@ d:\Competition\Hackspire\
 | **Telemetry Ingestion Rate** | **1.2 Seconds** | Real-time full-duplex WebSocket tick rate |
 | **AI Model Fallback Cascade** | **15+ Models** | High resilience against cloud rate limits and outages |
 | **Fallback Reasoner Latency** | **< 5 Milliseconds** | Deterministic local safety net guaranteeing uptime |
-| **Frontend Architecture** | **12 Pages + 4 Modals/Drawers + Voice HUD** | Complete mission control deck with FTA drawer, Crypto Handshake & Voice HITL modal |
+| **Frontend Architecture** | **13 Pages + 4 Modals/Drawers + Voice HUD** | Complete mission control deck with Runbooks, FTA drawer, Crypto Handshake & Voice HITL modal |
 | **Speech Recognition Engine** | **15+ Voice Intents** | Dynamic Web Speech NLP resolving across 82 channels, fleet nodes & API triggers |
 | **Procedural Chime Frequencies** | **880 / 1046.5 / 660 / 523.25 Hz** | Zero-asset Web Audio oscillators for CRITICAL, HIGH & COMMAND_CONFIRMED alerts |
 | **HITL Voice Confirmation Interlocks** | **100% Enforced** | Voice approval commands require Flight Director RBAC + visual modal sign-off |
 | **Dual-View Output Modes** | **2 Views** | Interactive Swiss Brutalist Web UI vs NASA Print Whitepaper |
-| **Relational Database Tables** | **7 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`, `tle_cache`) |
+| **Relational Database Tables** | **9 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`, `tle_cache`, `contingency_runbooks`, `runbook_executions`) |
+| **Contingency Runbook Engine** | **Telemetry-Gated Async FSM** | Evaluates live 82-channel frames (`>`, `<`, `BETWEEN`) across 3 ticks before advancing |
 | **Cryptographic Uplink Signature** | **HMAC-SHA256 (64-char)** | Dynamic cryptographic authorization token with 10.0s abort window |
 | **Predictive Runway Horizon** | **30 Steps Ahead (+25s)** | Real-time OLS velocity slope and physical time-to-breach countdowns |
 | **Fault Tree Architecture** | **4 Topological Layers** | L0 Sources → L1 Distribution → L2 Subsystems → L3 Safe-Mode |
@@ -1418,13 +1484,14 @@ ASTRA represents a major leap forward in modern spacecraft mission control softw
 5. **Interactive Aerospace Copilot:** Features real-time technical dialogue powered by `StructuredMarkdown.jsx` rendering technical badges, pills, and engineering checklists.
 6. **Universal Command Palette (<kbd>Ctrl</kbd>+<kbd>K</kbd>):** Provides rapid, keyboard-driven navigation with auto-scrolling synchronization and high-contrast styling.
 7. **Dual-View Flight Audit & NASA Debrief:** Automatically generates publication-grade NASA Technical Documents on pure white A4 paper with official sign-offs by Gene Kranz and Dr. Eleanor Arroway.
-8. **Crash-Resilient Database Persistence:** Guarantees permanent audit and telemetry history across server restarts via SQLite WAL mode (6 tables) and disk-backed JSON storage.
+8. **Crash-Resilient Database Persistence:** Guarantees permanent audit and telemetry history across server restarts via SQLite WAL mode (9 tables) and disk-backed JSON storage.
 9. **Immutable Human-in-the-Loop Safety:** Strictly enforces operator clearance and manual authorization at every architectural layer.
 10. **Real-Time Orbital Propagator & Ground Track Engine:** Propagates genuine spaceflight orbits via python `sgp4` and hourly CelesTrak TLE streams with DSN line-of-sight tracking and South Atlantic Anomaly (SAA) telemetry injection.
 11. **Predictive Time-Series Forecasting & Runway Horizon Alarms:** Employs rolling 60-tick OLS regression to project future sensor trajectories +25s ahead, computing dynamic countdowns before safety threshold breaches.
 12. **Interactive Fault Tree Analysis (FTA) & Cascading Failure Engine:** Computes and animates the propagation of subsystem anomalies across a 4-layer dependency tree, with an interactive telemetry inspection drawer.
 13. **Aerospace Cryptographic Command Uplink & 10s Handshake Timers:** Secures all command transmissions with live HMAC-SHA256 tokens, enforcing a T-minus 10-second circular countdown abort window with permanent SQLite ledger notarization.
 14. **Voice-Controlled Mission Control & Procedural Audio Telemetry Alerts:** Enables hands-free natural language spacecraft operations via Web Speech `SpeechRecognition`, priority-interrupting `SpeechSynthesis` operational briefings, zero-asset Web Audio API alarm synthesis, and strict HITL/RBAC voice confirmation logging (`SOURCE: VOICE_COMMAND`).
+15. **Automated Contingency Runbooks & Multi-Step Playbooks:** Executes RBAC-protected recovery sequences as async telemetry-gated state machines subscribed to live `TelemetryService` frames, halting automatically on verification timeout and persisting every step transition and sensor check to SQLite `astra.db`.
 
 ---
 

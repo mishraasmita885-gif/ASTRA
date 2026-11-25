@@ -22,6 +22,7 @@ export const MissionReportsPage = () => {
     subsystems,
     activeChannel,
     operatorRole,
+    runbookExecutions,
   } = useMission();
 
   const [isCopied, setIsCopied] = useState(false);
@@ -80,7 +81,16 @@ ${anomalies.map((a, i) => `
 
 ---
 
-## 5. Chronological Audit Log (Recent Entries)
+## 5. Automated Contingency Runbook Executions
+| Execution ID | Runbook | Status | Current Step | Authorized By |
+| :--- | :--- | :--- | :--- | :--- |
+${(runbookExecutions && runbookExecutions.length > 0)
+  ? runbookExecutions.slice(0, 6).map((ex) => `| \`${ex.execution_id}\` | ${ex.runbook_id} (${ex.runbook_title}) | \`${ex.status}\` | ${ex.current_step}/${ex.step_states?.length || ex.total_steps || 1} | ${ex.authorized_by} |`).join('\n')
+  : '| -- | No runbook executions recorded yet | STANDBY | -- | -- |'}
+
+---
+
+## 6. Chronological Audit Log (Recent Entries)
 | Time | Type | Subsystem / Event Description | HMAC-SHA256 Token |
 | :--- | :--- | :--- | :--- |
 ${auditLog.slice(0, 10).map((l) => `| ${l.time} | \`${l.type}\` | ${l.message} | \`${l.crypto_hash ? l.crypto_hash.slice(0, 16) + "..." : "AUTHENTICATED"}\` |`).join('\n')}
@@ -303,6 +313,37 @@ ${auditLog.slice(0, 10).map((l) => `| ${l.time} | \`${l.type}\` | ${l.message} |
               ))}
             </div>
           </div>
+
+          {/* Section 3B: Automated Contingency Runbooks & Verification Gates */}
+          {runbookExecutions && runbookExecutions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="font-display font-bold text-sm uppercase tracking-wide text-[#4a2e1b]">
+                3. Automated Contingency Runbooks &amp; Telemetry Gates
+              </h3>
+              <div className="overflow-x-auto rounded-2xl border-2 border-[#4a2e1b] bg-white">
+                <table className="w-full text-left font-mono text-xs">
+                  <thead className="bg-[#ebdccb] border-b-2 border-[#4a2e1b] text-[#24140b]">
+                    <tr>
+                      <th className="p-2.5">Execution ID</th>
+                      <th className="p-2.5">Runbook</th>
+                      <th className="p-2.5">Step Progress</th>
+                      <th className="p-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#4a2e1b]/15">
+                    {runbookExecutions.slice(0, 6).map((ex) => (
+                      <tr key={ex.execution_id}>
+                        <td className="p-2.5 font-bold">{ex.execution_id}</td>
+                        <td className="p-2.5">{ex.runbook_id} — {ex.runbook_title}</td>
+                        <td className="p-2.5">Step {ex.current_step}/{ex.step_states?.length || ex.total_steps || 1}</td>
+                        <td className="p-2.5 font-bold">{ex.status}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {/* Section 4: Cryptographic Ledger Verification */}
           <div className="p-4 rounded-2xl bg-[#ebdccb] border-2 border-[#24140b] flex flex-wrap items-center justify-between gap-4 font-mono text-xs">
@@ -554,6 +595,41 @@ ${auditLog.slice(0, 10).map((l) => `| ${l.time} | \`${l.type}\` | ${l.message} |
             </div>
           )}
         </div>
+
+        {runbookExecutions && runbookExecutions.length > 0 && (
+          <div className="report-section flex flex-col gap-2 mb-4">
+            <div className="flex items-center justify-between border-b border-black pb-1">
+              <h2 className="font-mono font-bold text-xs uppercase tracking-wider text-black">
+                3B. Contingency Runbook State Machine Executions
+              </h2>
+              <span className="text-[10px] font-mono text-neutral-500">TELEMETRY-GATED RECOVERY LOG</span>
+            </div>
+            <div className="report-table-wrapper">
+              <table className="report-table w-full text-left font-mono text-xs border border-black">
+                <thead className="bg-neutral-100 border-b border-black text-black">
+                  <tr>
+                    <th className="p-2 border-r border-black">Execution ID</th>
+                    <th className="p-2 border-r border-black">Runbook</th>
+                    <th className="p-2 border-r border-black">Authorized By</th>
+                    <th className="p-2 border-r border-black">Progress</th>
+                    <th className="p-2">Outcome</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-black/30 text-neutral-900">
+                  {runbookExecutions.slice(0, 6).map((ex) => (
+                    <tr key={ex.execution_id}>
+                      <td className="p-2 font-bold border-r border-black/30">{ex.execution_id}</td>
+                      <td className="p-2 border-r border-black/30">{ex.runbook_id} ({ex.runbook_title})</td>
+                      <td className="p-2 border-r border-black/30">{ex.authorized_by}</td>
+                      <td className="p-2 border-r border-black/30">Step {ex.current_step}/{ex.step_states?.length || ex.total_steps || 1}</td>
+                      <td className="p-2 font-bold">{ex.status}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Section 4: Cryptographic Notarization & Formal Sign-off */}
         <div className="report-signature-block border border-black p-3.5 bg-neutral-50 flex flex-col gap-3 font-mono text-xs mb-3">

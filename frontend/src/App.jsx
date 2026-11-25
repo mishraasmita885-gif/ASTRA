@@ -13,6 +13,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { MissionReportsPage } from './pages/MissionReportsPage';
 import { FleetOverviewPage } from './pages/FleetOverviewPage';
 import { OrbitalMechanicsPage } from './pages/OrbitalMechanicsPage';
+import { RunbooksPage } from './pages/RunbooksPage';
 
 const AppContent = () => {
   const { activeTab } = useMission();
@@ -39,6 +40,8 @@ const AppContent = () => {
         return <EventLogPage />;
       case 'simulation':
         return <SimulationPage />;
+      case 'runbooks':
+        return <RunbooksPage />;
       case 'reports':
         return <MissionReportsPage />;
       case 'settings':

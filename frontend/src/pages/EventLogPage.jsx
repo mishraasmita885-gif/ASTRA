@@ -76,6 +76,12 @@ export const EventLogPage = () => {
         (evt.message && evt.message.includes('VOICE_COMMAND')) ||
         (evt.subsystem && evt.subsystem.includes('VOICE_COMMS'));
       if (!isVoice) return false;
+    } else if (filterType === 'RUNBOOK') {
+      const isRunbook =
+        (evt.type && evt.type.startsWith('RUNBOOK')) ||
+        (evt.subsystem && evt.subsystem.includes('RUNBOOKS')) ||
+        (evt.message && evt.message.includes('RUNBOOK'));
+      if (!isRunbook) return false;
     } else if (filterType !== 'ALL' && evt.type !== filterType) {
       return false;
     }
@@ -181,7 +187,7 @@ export const EventLogPage = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5">
-            {['ALL', 'CRITICAL', 'COMMAND_UPLINK', 'VOICE_COMMAND', 'WARNING', 'INFO'].map((t) => (
+            {['ALL', 'CRITICAL', 'COMMAND_UPLINK', 'RUNBOOK', 'VOICE_COMMAND', 'WARNING', 'INFO'].map((t) => (
               <button
                 key={t}
                 onClick={() => setFilterType(t)}
@@ -216,13 +222,13 @@ export const EventLogPage = () => {
 
                 <span
                   className={`text-[9px] px-2 py-0.5 rounded font-bold shrink-0 ${
-                    evt.type === 'CRITICAL'
+                    evt.type === 'CRITICAL' || evt.type === 'RUNBOOK_HALTED_VERIFICATION_FAILED'
                       ? 'bg-red-100 text-red-700'
-                      : evt.type === 'COMMAND_UPLINK' || evt.type === 'OPERATOR_APPROVAL'
+                      : evt.type === 'COMMAND_UPLINK' || evt.type === 'OPERATOR_APPROVAL' || evt.type === 'RUNBOOK_COMPLETED' || evt.type === 'RUNBOOK_GATE_VERIFIED'
                       ? 'bg-emerald-100 text-emerald-800 font-bold'
-                      : evt.type === 'VOICE_COMMAND'
+                      : evt.type === 'VOICE_COMMAND' || evt.type === 'RUNBOOK_STARTED' || evt.type === 'RUNBOOK_STEP_EXECUTED'
                       ? 'bg-[#fea619] text-[#24140b] border border-[#452a19]'
-                      : evt.type === 'WARNING'
+                      : evt.type === 'WARNING' || evt.type === 'RUNBOOK_ABORTED'
                       ? 'bg-amber-100 text-amber-800'
                       : 'bg-blue-100 text-blue-800'
                   }`}

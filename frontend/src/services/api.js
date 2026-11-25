@@ -371,3 +371,57 @@ export async function fetchStagedCommands(spacecraftId = null) {
     return [];
   }
 }
+
+// ============================================================
+// Automated Contingency Runbooks & Multi-Step Playbooks API
+// ============================================================
+
+export async function fetchRunbooks() {
+  try {
+    const res = await fetch(`${API_BASE}/runbooks`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('[Runbooks] Failed to fetch runbooks:', err);
+    return null;
+  }
+}
+
+export async function createRunbook(payload) {
+  const res = await fetch(`${API_BASE}/runbooks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function executeRunbook(runbookId, payload = {}) {
+  const res = await fetch(`${API_BASE}/runbooks/${encodeURIComponent(runbookId)}/execute`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function abortRunbookExecution(executionId, payload = {}) {
+  const res = await fetch(`${API_BASE}/runbooks/executions/${encodeURIComponent(executionId)}/abort`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}

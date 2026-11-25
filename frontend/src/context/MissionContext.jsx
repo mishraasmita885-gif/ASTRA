@@ -23,6 +23,10 @@ import {
   abortCommandUplink,
   transmitCommandUplink,
   postAuditLog,
+  fetchRunbooks,
+  createRunbook,
+  executeRunbook,
+  abortRunbookExecution,
 } from '../services/api';
 import {
   playAcousticAlert,
@@ -279,6 +283,12 @@ export const MissionProvider = ({ children }) => {
   // Cryptographic Secure Command Uplink State
   const [pendingSecureUplink, setPendingSecureUplink] = useState(null);
 
+  // Automated Contingency Runbooks State
+  const [runbooks, setRunbooks] = useState([]);
+  const [runbookExecutions, setRunbookExecutions] = useState([]);
+  const [selectedRunbookExecutionId, setSelectedRunbookExecutionId] = useState(null);
+  const lastRunbookSoundStateRef = useRef({});
+
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
 
@@ -479,6 +489,15 @@ export const MissionProvider = ({ children }) => {
         if (ftaData && ftaData.nodes && ftaData.nodes.length > 0) {
           setFaultTreeGraph(ftaData);
         }
+
+        const rbData = await fetchRunbooks();
+        if (rbData) {
+          if (Array.isArray(rbData.runbooks)) setRunbooks(rbData.runbooks);
+          if (Array.isArray(rbData.executions)) {
+            setRunbookExecutions(rbData.executions);
+            setSelectedRunbookExecutionId((prevId) => prevId || rbData.executions[0]?.execution_id || null);
+          }
+        }
       } else {
         setIsBackendConnected(false);
       }
@@ -516,7 +535,49 @@ export const MissionProvider = ({ children }) => {
           if (isCleanedUp) return;
           try {
             const data = JSON.parse(event.data);
+
+            // Real-time Automated Contingency Runbook updates
+            if (data.type === 'RUNBOOK_UPDATE' && data.execution) {
+              const ex = data.execution;
+              if (Array.isArray(data.executions)) {
+                setRunbookExecutions(data.executions);
+              } else {
+                setRunbookExecutions((prev) => {
+                  const filtered = prev.filter((item) => item.execution_id !== ex.execution_id);
+                  return [ex, ...filtered].slice(0, 25);
+                });
+              }
+              setSelectedRunbookExecutionId(ex.execution_id);
+
+              const prevStatus = lastRunbookSoundStateRef.current[ex.execution_id];
+              if (prevStatus !== ex.status) {
+                lastRunbookSoundStateRef.current[ex.execution_id] = ex.status;
+                if (ex.status === 'COMPLETED') {
+                  playAlertChime('COMMAND_CONFIRMED');
+                  speakBriefing(
+                    `Contingency runbook ${ex.runbook_id} completed. All ${ex.total_steps || ex.step_states?.length || ''} verification gates passed.`,
+                    'HIGH'
+                  );
+                  syncWithBackend();
+                } else if (ex.status === 'HALTED_VERIFICATION_FAILED') {
+                  playAlertChime('CRITICAL');
+                  speakBriefing(
+                    `Alert. Contingency runbook ${ex.runbook_id} halted at step ${ex.current_step}. Telemetry verification gate failed.`,
+                    'CRITICAL'
+                  );
+                  syncWithBackend();
+                } else if (ex.status === 'ABORTED') {
+                  playAlertChime('WARNING');
+                  syncWithBackend();
+                }
+              }
+              return;
+            }
+
             if (data.type === 'TELEMETRY_TICK' || data.type === 'CONNECTION_ESTABLISHED') {
+              if (data.type === 'CONNECTION_ESTABLISHED' && Array.isArray(data.runbook_executions)) {
+                setRunbookExecutions(data.runbook_executions);
+              }
               const tel = data.telemetry;
               if (!tel) return;
 
@@ -1715,6 +1776,87 @@ export const MissionProvider = ({ children }) => {
     }
   }, []);
 
+  // Contingency Runbook Operations
+  const refreshRunbooks = useCallback(async () => {
+    const rbData = await fetchRunbooks();
+    if (rbData) {
+      if (Array.isArray(rbData.runbooks)) setRunbooks(rbData.runbooks);
+      if (Array.isArray(rbData.executions)) setRunbookExecutions(rbData.executions);
+    }
+    return rbData;
+  }, []);
+
+  const launchRunbook = useCallback(
+    async (runbookId) => {
+      if (!hasCommandAuthorityRef.current) {
+        playAlertChime('DENIED');
+        throw new Error('ACCESS DENIED: Flight Director clearance is required to execute contingency runbooks.');
+      }
+      const res = await executeRunbook(runbookId, {
+        operator_id: 'Flight Director Gene Kranz',
+        operator_role: operatorRoleRef.current,
+        spacecraft_id: activeSpacecraftRef.current,
+      });
+      if (res && res.execution) {
+        setRunbookExecutions((prev) => [
+          res.execution,
+          ...prev.filter((item) => item.execution_id !== res.execution.execution_id),
+        ]);
+        setSelectedRunbookExecutionId(res.execution.execution_id);
+        playAlertChime('COMMAND_CONFIRMED');
+      }
+      return res?.execution || null;
+    },
+    [playAlertChime]
+  );
+
+  const abortRunbook = useCallback(
+    async (executionId, reason = 'Manual operator abort requested') => {
+      if (!hasCommandAuthorityRef.current) {
+        playAlertChime('DENIED');
+        throw new Error('ACCESS DENIED: Flight Director clearance is required to abort contingency runbooks.');
+      }
+      const res = await abortRunbookExecution(executionId, {
+        operator_id: 'Flight Director Gene Kranz',
+        operator_role: operatorRoleRef.current,
+        reason,
+      });
+      if (res && res.execution) {
+        setRunbookExecutions((prev) =>
+          prev.map((item) => (item.execution_id === executionId ? res.execution : item))
+        );
+        playAlertChime('WARNING');
+      }
+      return res?.execution || null;
+    },
+    [playAlertChime]
+  );
+
+  const createCustomRunbook = useCallback(
+    async (payload) => {
+      if (!hasCommandAuthorityRef.current) {
+        playAlertChime('DENIED');
+        throw new Error('ACCESS DENIED: Flight Director clearance is required to create custom runbooks.');
+      }
+      const res = await createRunbook({
+        ...payload,
+        operator_role: operatorRoleRef.current,
+      });
+      await refreshRunbooks();
+      playAlertChime('COMMAND_CONFIRMED');
+      return res?.runbook || null;
+    },
+    [playAlertChime, refreshRunbooks]
+  );
+
+  const activeRunbookExecution =
+    runbookExecutions.find(
+      (ex) => ex.status === 'RUNNING' || ex.status === 'VERIFYING_TELEMETRY' || ex.status === 'STAGED'
+    ) ||
+    runbookExecutions.find((ex) => ex.execution_id === selectedRunbookExecutionId) ||
+    runbookExecutions[0] ||
+    null;
+
   const selectedAnomaly =
     anomalies.find((a) => a.id === selectedAnomalyId) ||
     anomalies[0] ||
@@ -1797,6 +1939,16 @@ export const MissionProvider = ({ children }) => {
         cancelVoiceApproval,
         anomalyCenterTab,
         setAnomalyCenterTab,
+        // Automated Contingency Runbooks
+        runbooks,
+        runbookExecutions,
+        activeRunbookExecution,
+        selectedRunbookExecutionId,
+        setSelectedRunbookExecutionId,
+        launchRunbook,
+        abortRunbook,
+        createCustomRunbook,
+        refreshRunbooks,
       }}
     >
       {children}

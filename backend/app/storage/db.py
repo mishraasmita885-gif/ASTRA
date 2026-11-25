@@ -10,8 +10,12 @@ DB_PATH = Path(__file__).parent / "astra.db"
 
 
 def get_db_connection() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH))
+    conn = sqlite3.connect(str(DB_PATH), timeout=15.0)
     conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode=WAL;")
+    except Exception:
+        pass
     return conn
 
 
@@ -104,9 +108,40 @@ def init_db():
                 updated_at TEXT NOT NULL
             );
         """)
+
+        # Automated Contingency Runbooks Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS contingency_runbooks (
+                id TEXT PRIMARY KEY,
+                title TEXT NOT NULL,
+                subsystem TEXT NOT NULL,
+                description TEXT NOT NULL,
+                steps_json TEXT NOT NULL,
+                created_at TEXT,
+                updated_at TEXT
+            );
+        """)
+
+        # Contingency Runbook Executions State & Audit Table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS runbook_executions (
+                execution_id TEXT PRIMARY KEY,
+                runbook_id TEXT NOT NULL,
+                runbook_title TEXT,
+                spacecraft_id TEXT DEFAULT 'ASTRA-ALPHA',
+                status TEXT NOT NULL,
+                current_step INTEGER DEFAULT 1,
+                authorized_by TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT,
+                step_states_json TEXT,
+                failure_reason TEXT
+            );
+        """)
         
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_events_status ON events(status);")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_epoch ON audit_log(timestamp_epoch DESC);")
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_runbook_exec_started ON runbook_executions(started_at DESC);")
 
         # Seed default constellation spacecraft nodes if not present
         cursor.execute("SELECT COUNT(*) as cnt FROM spacecraft_nodes;")
@@ -137,6 +172,199 @@ def init_db():
                 ("ASTRA-GAMMA", "ASTRA-ALPHA", 28.6, 0.02, now_iso),
             ])
             logger.info("Seeded default Inter-Satellite Link (ISL) mesh topology")
+
+        # Seed aerospace contingency runbooks tied dynamically to ASTRA's real channels
+        cursor.execute("SELECT COUNT(*) as cnt FROM contingency_runbooks;")
+        rb_count = cursor.fetchone()["cnt"]
+        if rb_count == 0:
+            now_iso = "2026-11-25T12:00:00Z"
+            default_runbooks = [
+                (
+                    "RB-EPS-SOLAR-01",
+                    "Emergency Solar Reconstitution Sequence",
+                    "EPS",
+                    "Multi-step recovery for photovoltaic array collapse and primary power bus undervoltage: sheds non-essential loads, deploys redundant wing P-1, and transfers instrumentation to regulated bus P-3.",
+                    json.dumps([
+                        {
+                            "step_number": 1,
+                            "command_code": "CMD_SHED_NON_ESSENTIAL",
+                            "action_title": "Shed Non-Essential Payload & Heater Loads",
+                            "description": "Isolate non-vital secondary loads on D-1 to halt bus drain before array switchover.",
+                            "target_channel": "D-1",
+                            "metric_key": "current_draw",
+                            "unit": "A",
+                            "verification_operator": "<",
+                            "threshold_min": None,
+                            "threshold_max": 12.0,
+                            "required_ticks": 3,
+                            "timeout_seconds": 18.0,
+                        },
+                        {
+                            "step_number": 2,
+                            "command_code": "CMD_DEPLOY_SOLAR_B",
+                            "action_title": "Engage Redundant Starboard Solar Wing (P-1)",
+                            "description": "Actuate backup solar wing bus relay and track sunline on channel P-1.",
+                            "target_channel": "P-1",
+                            "metric_key": "solar_input",
+                            "unit": "%",
+                            "verification_operator": ">",
+                            "threshold_min": 75.0,
+                            "threshold_max": None,
+                            "required_ticks": 3,
+                            "timeout_seconds": 20.0,
+                        },
+                        {
+                            "step_number": 3,
+                            "command_code": "CMD_STABILIZE_BUS_P3",
+                            "action_title": "Transfer Instrumentation to Regulated Bus P-3",
+                            "description": "Close S3R shunt regulator tie and verify primary bus P-3 within nominal 23.5–28.0 V envelope.",
+                            "target_channel": "P-3",
+                            "metric_key": "voltage",
+                            "unit": "V",
+                            "verification_operator": "BETWEEN",
+                            "threshold_min": 23.5,
+                            "threshold_max": 28.0,
+                            "required_ticks": 3,
+                            "timeout_seconds": 20.0,
+                        },
+                    ]),
+                    now_iso,
+                    now_iso,
+                ),
+                (
+                    "RB-TCS-BATT-01",
+                    "Battery Thermal Runaway Isolation",
+                    "TCS",
+                    "Isolates over-heating Li-Ion cell bank, opens emergency ammonia radiator bypass louvers on T-2, and verifies bus P-3 diode tie stability.",
+                    json.dumps([
+                        {
+                            "step_number": 1,
+                            "command_code": "CMD_ISOLATE_CELL_BANK_3",
+                            "action_title": "Disconnect Compromised Li-Ion Cell Bank 3",
+                            "description": "Open high-current contactor on compromised battery branch and limit discharge current on D-2.",
+                            "target_channel": "D-2",
+                            "metric_key": "current_draw",
+                            "unit": "A",
+                            "verification_operator": "<",
+                            "threshold_min": None,
+                            "threshold_max": 10.0,
+                            "required_ticks": 3,
+                            "timeout_seconds": 18.0,
+                        },
+                        {
+                            "step_number": 2,
+                            "command_code": "CMD_OPEN_RADIATOR_LOUVERS",
+                            "action_title": "Open Emergency Ammonia Radiator Bypass Loop",
+                            "description": "Command 100% thermal louver deployment and pump surge until core T-2 drops below 42.0 °C.",
+                            "target_channel": "T-2",
+                            "metric_key": "temperature",
+                            "unit": "°C",
+                            "verification_operator": "<",
+                            "threshold_min": None,
+                            "threshold_max": 42.0,
+                            "required_ticks": 3,
+                            "timeout_seconds": 22.0,
+                        },
+                        {
+                            "step_number": 3,
+                            "command_code": "CMD_VERIFY_BUS_DIODE_TIE",
+                            "action_title": "Confirm Backup Bus Voltage & Cell Equilibrium",
+                            "description": "Verify redundant power rail P-3 maintains 23.5–28.0 V with battery pack isolated.",
+                            "target_channel": "P-3",
+                            "metric_key": "voltage",
+                            "unit": "V",
+                            "verification_operator": "BETWEEN",
+                            "threshold_min": 23.5,
+                            "threshold_max": 28.0,
+                            "required_ticks": 3,
+                            "timeout_seconds": 20.0,
+                        },
+                    ]),
+                    now_iso,
+                    now_iso,
+                ),
+                (
+                    "RB-EPS-BUS-01",
+                    "Bus Undervoltage Load Shedding",
+                    "EPS",
+                    "Rapid two-stage recovery for NASA P-3 step-change anomalies and secondary bus brownouts via priority load shedding and shunt tie restoration.",
+                    json.dumps([
+                        {
+                            "step_number": 1,
+                            "command_code": "CMD_SHED_AUX_BUS",
+                            "action_title": "Shed Auxiliary Instrument Loads on Bus P-2",
+                            "description": "Drop non-critical science instrument rails to raise secondary bus P-2 above 20.0 V.",
+                            "target_channel": "P-2",
+                            "metric_key": "voltage",
+                            "unit": "V",
+                            "verification_operator": ">",
+                            "threshold_min": 20.0,
+                            "threshold_max": None,
+                            "required_ticks": 3,
+                            "timeout_seconds": 18.0,
+                        },
+                        {
+                            "step_number": 2,
+                            "command_code": "CMD_ENGAGE_SHUNT_REG",
+                            "action_title": "Engage S3R Shunt Regulator on Channel P-3",
+                            "description": "Lock primary regulated bus P-3 between 23.5 V and 28.0 V across 3 consecutive telemetry frames.",
+                            "target_channel": "P-3",
+                            "metric_key": "voltage",
+                            "unit": "V",
+                            "verification_operator": "BETWEEN",
+                            "threshold_min": 23.5,
+                            "threshold_max": 28.0,
+                            "required_ticks": 3,
+                            "timeout_seconds": 20.0,
+                        },
+                    ]),
+                    now_iso,
+                    now_iso,
+                ),
+                (
+                    "RB-ADCS-DESAT-01",
+                    "ADCS Wheel Desaturation & S-Band Relock",
+                    "ADCS",
+                    "Counteracts reaction wheel saturation and pointing drift on A-1, then re-acquires high-gain DSN Madrid-63 S-Band carrier lock on C-1.",
+                    json.dumps([
+                        {
+                            "step_number": 1,
+                            "command_code": "CMD_MOMENTUM_DUMP_RCS",
+                            "action_title": "Execute Magnetorquer & RCS Momentum Dump",
+                            "description": "Desaturate X/Y/Z reaction wheels until gyro drift rate A-1 stabilizes below 0.08 °/hr.",
+                            "target_channel": "A-1",
+                            "metric_key": "adcs_drift",
+                            "unit": "°/hr",
+                            "verification_operator": "<",
+                            "threshold_min": None,
+                            "threshold_max": 0.08,
+                            "required_ticks": 3,
+                            "timeout_seconds": 20.0,
+                        },
+                        {
+                            "step_number": 2,
+                            "command_code": "CMD_HGA_REPOINT_DSN",
+                            "action_title": "Re-Point High-Gain Antenna to DSN Madrid-63",
+                            "description": "Trim gimbal azimuth/elevation and confirm S-Band carrier SNR C-1 exceeds +11.0 dBm.",
+                            "target_channel": "C-1",
+                            "metric_key": "link_snr",
+                            "unit": "dBm",
+                            "verification_operator": ">",
+                            "threshold_min": 11.0,
+                            "threshold_max": None,
+                            "required_ticks": 3,
+                            "timeout_seconds": 20.0,
+                        },
+                    ]),
+                    now_iso,
+                    now_iso,
+                ),
+            ]
+            cursor.executemany("""
+                INSERT INTO contingency_runbooks (id, title, subsystem, description, steps_json, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, default_runbooks)
+            logger.info("Seeded 4 aerospace contingency runbooks into SQLite astra.db")
         
         conn.commit()
         conn.close()
@@ -381,4 +609,131 @@ def db_update_isl_link(source_sat: str, target_sat: str, latency_ms: float, pack
         conn.close()
     except Exception as e:
         logger.warning(f"Error updating ISL link between {source_sat} and {target_sat}: {e}")
+
+
+# ============================================================
+# Automated Contingency Runbooks & Execution Persistence
+# ============================================================
+
+def db_list_runbooks() -> List[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM contingency_runbooks ORDER BY subsystem ASC, id ASC;")
+        rows = cursor.fetchall()
+        conn.close()
+        results = []
+        for row in rows:
+            d = dict(row)
+            d["steps"] = json.loads(d.pop("steps_json", "[]"))
+            results.append(d)
+        return results
+    except Exception as e:
+        logger.warning(f"Error listing contingency runbooks: {e}")
+        return []
+
+
+def db_get_runbook(runbook_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM contingency_runbooks WHERE id = ?;", (runbook_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        d["steps"] = json.loads(d.pop("steps_json", "[]"))
+        return d
+    except Exception as e:
+        logger.warning(f"Error getting runbook {runbook_id}: {e}")
+        return None
+
+
+def db_save_runbook(runbook_dict: Dict[str, Any]):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO contingency_runbooks (
+                id, title, subsystem, description, steps_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            runbook_dict["id"],
+            runbook_dict["title"],
+            runbook_dict["subsystem"],
+            runbook_dict["description"],
+            json.dumps(runbook_dict.get("steps", [])),
+            runbook_dict.get("created_at"),
+            runbook_dict.get("updated_at"),
+        ))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error persisting runbook {runbook_dict.get('id')}: {e}")
+
+
+def db_save_runbook_execution(exec_dict: Dict[str, Any]):
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT OR REPLACE INTO runbook_executions (
+                execution_id, runbook_id, runbook_title, spacecraft_id, status,
+                current_step, authorized_by, started_at, completed_at,
+                step_states_json, failure_reason
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            exec_dict["execution_id"],
+            exec_dict["runbook_id"],
+            exec_dict.get("runbook_title"),
+            exec_dict.get("spacecraft_id", "ASTRA-ALPHA"),
+            exec_dict["status"],
+            int(exec_dict.get("current_step", 1)),
+            exec_dict.get("authorized_by", "Flight Director"),
+            exec_dict["started_at"],
+            exec_dict.get("completed_at"),
+            json.dumps(exec_dict.get("step_states", [])),
+            exec_dict.get("failure_reason"),
+        ))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"Error persisting runbook execution {exec_dict.get('execution_id')}: {e}")
+
+
+def db_get_runbook_execution(execution_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM runbook_executions WHERE execution_id = ?;", (execution_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        d = dict(row)
+        d["step_states"] = json.loads(d.pop("step_states_json", "[]") or "[]")
+        return d
+    except Exception as e:
+        logger.warning(f"Error getting runbook execution {execution_id}: {e}")
+        return None
+
+
+def db_list_runbook_executions(limit: int = 25) -> List[Dict[str, Any]]:
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM runbook_executions ORDER BY started_at DESC LIMIT ?;", (limit,))
+        rows = cursor.fetchall()
+        conn.close()
+        results = []
+        for row in rows:
+            d = dict(row)
+            d["step_states"] = json.loads(d.pop("step_states_json", "[]") or "[]")
+            results.append(d)
+        return results
+    except Exception as e:
+        logger.warning(f"Error listing runbook executions: {e}")
+        return []
+
 
