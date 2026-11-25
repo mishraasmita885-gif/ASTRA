@@ -22,7 +22,19 @@ import {
   authorizeCommandUplink,
   abortCommandUplink,
   transmitCommandUplink,
+  postAuditLog,
 } from '../services/api';
+import {
+  playAcousticAlert,
+  speakOperationalBriefing,
+  cancelAllSpeech,
+  buildAnomalyBriefing,
+  buildDiagnosisBriefing,
+  buildStatusBriefing,
+  parseVoiceIntent,
+  VoiceCommandController,
+  isSpeechRecognitionSupported,
+} from '../services/voiceAudioEngine';
 
 const MissionContext = createContext(null);
 
@@ -173,48 +185,65 @@ export const MissionProvider = ({ children }) => {
     });
   }, []);
 
-  // Web Audio Alert Synthesizer
-  const playAlertChime = useCallback((type = 'warning') => {
-    if (!settingsConfig.audioAlertsEnabled || typeof window === 'undefined') return;
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      const ctx = new AudioCtx();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      
-      const now = ctx.currentTime;
-      if (type === 'critical') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(880, now);
-        osc.frequency.exponentialRampToValueAtTime(440, now + 0.3);
-        gain.gain.setValueAtTime(0.15, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-      } else if (type === 'success') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(523.25, now);
-        osc.frequency.setValueAtTime(659.25, now + 0.1);
-        osc.frequency.setValueAtTime(783.99, now + 0.2);
-        gain.gain.setValueAtTime(0.12, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-        osc.start(now);
-        osc.stop(now + 0.35);
-      } else {
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(587.33, now);
-        gain.gain.setValueAtTime(0.1, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
-        osc.start(now);
-        osc.stop(now + 0.25);
-      }
-    } catch (e) {
-      console.warn('Audio chime notice:', e);
+  // Refs for fresh state access inside WebSocket & Voice listeners
+  const audioAlertsEnabledRef = useRef(settingsConfig.audioAlertsEnabled);
+  audioAlertsEnabledRef.current = settingsConfig.audioAlertsEnabled;
+  const detectionThresholdRef = useRef(settingsConfig.detectionThreshold);
+  detectionThresholdRef.current = settingsConfig.detectionThreshold;
+
+  // Voice Comms & Synthesized Audio State
+  const [voiceStatus, setVoiceStatus] = useState(() =>
+    isSpeechRecognitionSupported() ? 'MIC STANDBY' : 'UNSUPPORTED'
+  );
+  const [voiceTranscript, setVoiceTranscript] = useState('');
+  const [voiceLastAction, setVoiceLastAction] = useState(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [pendingVoiceApproval, setPendingVoiceApproval] = useState(null);
+  const [anomalyCenterTab, setAnomalyCenterTab] = useState('inspector');
+
+  const voiceControllerRef = useRef(null);
+  const voiceFeedbackTimerRef = useRef(null);
+  const wasAnomalyActiveRef = useRef(false);
+  const lastAudioAlertAtRef = useRef(0);
+  const knownEventIdsRef = useRef(new Set());
+  const initialEventsSeededRef = useRef(false);
+
+  // Procedural Web Audio API Synthesizer (zero audio files)
+  const playAlertChime = useCallback((severity = 'WARNING') => {
+    return playAcousticAlert(severity, { enabled: audioAlertsEnabledRef.current });
+  }, []);
+
+  // Dynamic Web Speech API TTS Briefing
+  const speakBriefing = useCallback((text, priority = 'NORMAL', { bypassMute = false } = {}) => {
+    return speakOperationalBriefing(text, priority, {
+      enabled: bypassMute || audioAlertsEnabledRef.current,
+      onStart: () => setIsSpeaking(true),
+      onEnd: () => setIsSpeaking(false),
+      onError: () => setIsSpeaking(false),
+    });
+  }, []);
+
+  const stopAllVoiceAudio = useCallback(() => {
+    cancelAllSpeech();
+    setIsSpeaking(false);
+  }, []);
+
+  const toggleAudioAlerts = useCallback(() => {
+    const nextEnabled = !audioAlertsEnabledRef.current;
+    audioAlertsEnabledRef.current = nextEnabled;
+    updateSettingsConfig({ audioAlertsEnabled: nextEnabled });
+    if (!nextEnabled) {
+      cancelAllSpeech();
+      setIsSpeaking(false);
+    } else {
+      playAcousticAlert('COMMAND_CONFIRMED', { enabled: true });
     }
-  }, [settingsConfig.audioAlertsEnabled]);
+  }, [updateSettingsConfig]);
+
+  const clearVoiceFeedback = useCallback(() => {
+    setVoiceTranscript('');
+    setVoiceLastAction(null);
+  }, []);
 
   const [isCrisis, setIsCrisis] = useState(false);
   const [selectedAnomalyId, setSelectedAnomalyId] = useState('ASTRA-P3-0001');
@@ -252,6 +281,40 @@ export const MissionProvider = ({ children }) => {
 
   const wsRef = useRef(null);
   const reconnectTimeoutRef = useRef(null);
+
+  // Live state refs for WebSocket, sync handlers, and voice executor
+  const activeChannelRef = useRef(activeChannel);
+  activeChannelRef.current = activeChannel;
+  const activeSpacecraftRef = useRef(activeSpacecraft);
+  activeSpacecraftRef.current = activeSpacecraft;
+  const availableChannelsRef = useRef(availableChannels);
+  availableChannelsRef.current = availableChannels;
+  const fleetNodesRef = useRef(fleetNodes);
+  fleetNodesRef.current = fleetNodes;
+  const telemetryRef = useRef(telemetry);
+  telemetryRef.current = telemetry;
+  const anomaliesRef = useRef(anomalies);
+  anomaliesRef.current = anomalies;
+  const commandsRef = useRef(commands);
+  commandsRef.current = commands;
+  const runwayAlarmsRef = useRef(runwayAlarms);
+  runwayAlarmsRef.current = runwayAlarms;
+  const isCrisisRef = useRef(isCrisis);
+  isCrisisRef.current = isCrisis;
+  const operatorRoleRef = useRef(operatorRole);
+  operatorRoleRef.current = operatorRole;
+  const hasCommandAuthorityRef = useRef(hasCommandAuthority);
+  hasCommandAuthorityRef.current = hasCommandAuthority;
+
+  const readDiagnosisAloud = useCallback((anomalyOverride = null, { bypassMute = false } = {}) => {
+    const target =
+      anomalyOverride ||
+      anomaliesRef.current.find((a) => a.id === selectedAnomalyIdRef.current) ||
+      anomaliesRef.current[0];
+    const spokenText = buildDiagnosisBriefing(target);
+    if (!spokenText) return false;
+    return speakBriefing(spokenText, 'HIGH', { bypassMute });
+  }, [speakBriefing]);
 
   const toggleSidebar = () => setIsSidebarCollapsed((prev) => !prev);
 
@@ -344,6 +407,34 @@ export const MissionProvider = ({ children }) => {
               }
             ]
           }));
+          if (!initialEventsSeededRef.current) {
+            formatted.forEach((f) => knownEventIdsRef.current.add(f.id));
+            initialEventsSeededRef.current = true;
+          } else {
+            const newlyDetected = formatted.filter(
+              (f) =>
+                !knownEventIdsRef.current.has(f.id) &&
+                f.status !== 'RESOLVED' &&
+                f.status !== 'APPROVED'
+            );
+            formatted.forEach((f) => knownEventIdsRef.current.add(f.id));
+            if (newlyDetected.length > 0 && Date.now() - lastAudioAlertAtRef.current > 8000) {
+              const latestEvt = newlyDetected[0];
+              lastAudioAlertAtRef.current = Date.now();
+              playAlertChime(latestEvt.severity);
+              speakBriefing(
+                buildAnomalyBriefing({
+                  severity: latestEvt.severity,
+                  channel: latestEvt.rawEvent?.channel || activeChannelRef.current,
+                  score: latestEvt.mlScore,
+                  threshold: detectionThresholdRef.current,
+                  spacecraftId: activeSpacecraftRef.current,
+                }),
+                latestEvt.severity
+              );
+            }
+          }
+
           setAnomalies(formatted);
           if (!selectedAnomalyIdRef.current || !formatted.some((f) => f.id === selectedAnomalyIdRef.current)) {
             setSelectedAnomalyId(formatted[0].id);
@@ -355,7 +446,9 @@ export const MissionProvider = ({ children }) => {
             id: l.id,
             time: l.time,
             type: l.type,
+            subsystem: l.subsystem,
             message: l.event,
+            crypto_hash: l.crypto_hash,
           }));
           setAuditLog((prev) => {
             const backendIds = new Set(backendFormatted.map((b) => b.id));
@@ -458,8 +551,38 @@ export const MissionProvider = ({ children }) => {
               }
 
               const nowTime = new Date().toLocaleTimeString();
-              const isAnom = Boolean(tel.is_anomaly);
+              const activeThreshold = Number(detectionThresholdRef.current || 0.3889);
+              const rawScore = Number(tel.anomaly_score || 0);
+              const isAnom = Boolean(tel.is_anomaly) || rawScore > activeThreshold;
               setIsCrisis(isAnom);
+
+              // Automatically fire synthesized chime + live TTS readout on nominal -> anomaly transition
+              if (isAnom && !wasAnomalyActiveRef.current) {
+                wasAnomalyActiveRef.current = true;
+                const nowMs = Date.now();
+                if (nowMs - lastAudioAlertAtRef.current > 8000) {
+                  lastAudioAlertAtRef.current = nowMs;
+                  const dynSeverity =
+                    rawScore >= 0.85 || Number(tel.voltage) < 18 || Number(tel.temperature) > 70
+                      ? 'CRITICAL'
+                      : 'HIGH';
+                  playAlertChime(dynSeverity);
+                  speakBriefing(
+                    buildAnomalyBriefing({
+                      severity: dynSeverity,
+                      channel: tel.channel || activeChannelRef.current,
+                      score: rawScore,
+                      threshold: activeThreshold,
+                      voltage: tel.voltage,
+                      temperature: tel.temperature,
+                      spacecraftId: data.spacecraft_id || activeSpacecraftRef.current,
+                    }),
+                    dynSeverity
+                  );
+                }
+              } else if (!isAnom) {
+                wasAnomalyActiveRef.current = false;
+              }
 
               setTelemetry({
                 timestamp: tel.timestamp,
@@ -613,37 +736,108 @@ export const MissionProvider = ({ children }) => {
     };
   }, []);
 
-  // Request Gemini Reasoning Analysis for an Event
-  const triggerGeminiAnalysis = async (eventId) => {
-    const targetId = eventId || selectedAnomalyId || (anomalies[0] && anomalies[0].id) || 'ASTRA-P3-0001';
+  // Persist voice-originated actions into SQLite astra.db audit_log
+  const recordVoiceAudit = useCallback(
+    async ({ type = 'VOICE_COMMAND', subsystem = 'VOICE_COMMS', message, telemetrySummary = null }) => {
+      const taggedMsg = message.includes('SOURCE: VOICE_COMMAND')
+        ? message
+        : `${message} [SOURCE: VOICE_COMMAND]`;
+      const now = new Date().toTimeString().split(' ')[0];
+      const localId = `evt_local_${Date.now()}`;
+
+      setAuditLog((prev) => [
+        {
+          id: localId,
+          time: now,
+          type,
+          subsystem,
+          message: taggedMsg,
+        },
+        ...prev,
+      ]);
+
+      try {
+        await postAuditLog({
+          type,
+          subsystem,
+          event: taggedMsg,
+          source: 'VOICE_COMMAND',
+          telemetry_summary: telemetrySummary,
+        });
+      } catch (e) {
+        console.warn('Voice audit persistence warning:', e);
+      }
+    },
+    []
+  );
+
+  // Request Gemini Reasoning Analysis for an Event (with optional automatic TTS readout)
+  const triggerGeminiAnalysis = async (eventId, options = {}) => {
+    const { autoSpeak = true, bypassMute = false } = options || {};
+    const targetId =
+      eventId ||
+      selectedAnomalyIdRef.current ||
+      (anomaliesRef.current[0] && anomaliesRef.current[0].id) ||
+      'ASTRA-P3-0001';
     setIsAnalyzing(true);
     try {
       const res = await analyzeEvent(targetId);
       if (res && res.analysis) {
+        const mappedDiagnosis = {
+          model: res.analysis.model_used || 'Google Gemini Mission Reasoner',
+          rootCause: res.analysis.diagnosis,
+          survivalProbability:
+            res.analysis.survival_probability ??
+            (res.analysis.severity === 'CRITICAL' ? 68 : res.analysis.severity === 'HIGH' ? 82 : 95),
+          timeToExhaustion:
+            res.analysis.time_to_exhaustion ||
+            (res.analysis.severity === 'CRITICAL' ? '12m 40s' : '36m 15s'),
+          evidence: res.analysis.evidence,
+          recommendedAction: res.analysis.recommendation,
+          operator_approval_required: res.analysis.operator_approval_required,
+        };
+
+        let spokenTarget = null;
         setAnomalies((prev) => {
           const list = prev && prev.length > 0 ? prev : INITIAL_ANOMALIES;
-          return list.map((anm) =>
-            anm.id === targetId
-              ? {
-                  ...anm,
-                  status: 'UNDER_REVIEW',
-                  mlConfidence: `${Math.round(res.analysis.confidence * 100)}%`,
-                  geminiDiagnosis: {
-                    model: res.analysis.model_used || 'Google Gemini Mission Reasoner',
-                    rootCause: res.analysis.diagnosis,
-                    survivalProbability: res.analysis.survival_probability ?? (res.analysis.severity === 'CRITICAL' ? 68 : res.analysis.severity === 'HIGH' ? 82 : 95),
-                    timeToExhaustion: res.analysis.time_to_exhaustion || (res.analysis.severity === 'CRITICAL' ? '12m 40s' : '36m 15s'),
-                    evidence: res.analysis.evidence,
-                    recommendedAction: res.analysis.recommendation,
-                    operator_approval_required: res.analysis.operator_approval_required,
-                  },
-                }
-              : anm
-          );
+          return list.map((anm) => {
+            if (anm.id === targetId) {
+              const updated = {
+                ...anm,
+                status: 'UNDER_REVIEW',
+                severity: res.analysis.severity || anm.severity,
+                mlConfidence: `${Math.round(res.analysis.confidence * 100)}%`,
+                geminiDiagnosis: mappedDiagnosis,
+              };
+              spokenTarget = updated;
+              return updated;
+            }
+            return anm;
+          });
         });
-        const logs = await fetchAuditLog(30);
+
+        if (autoSpeak) {
+          const fallbackTarget = spokenTarget || {
+            id: targetId,
+            severity: res.analysis.severity || 'HIGH',
+            channel: res.event?.channel || activeChannelRef.current,
+            geminiDiagnosis: mappedDiagnosis,
+          };
+          readDiagnosisAloud(fallbackTarget, { bypassMute });
+        }
+
+        const logs = await fetchAuditLog(50);
         if (logs) {
-          setAuditLog(logs.map((l) => ({ id: l.id, time: l.time, type: l.type, message: l.event })));
+          setAuditLog(
+            logs.map((l) => ({
+              id: l.id,
+              time: l.time,
+              type: l.type,
+              subsystem: l.subsystem,
+              message: l.event,
+              crypto_hash: l.crypto_hash,
+            }))
+          );
         }
       }
       return res;
@@ -700,7 +894,7 @@ export const MissionProvider = ({ children }) => {
   };
 
   const triggerCrisis = (scenarioName = 'Solar Array Strike & EPS Bus Failure', mode = 'crisis_solar') => {
-    playAlertChime('critical');
+    wasAnomalyActiveRef.current = false; // Allow WS transition hook to chime & announce full telemetry readout
     switchSimulationMode(mode, 0);
   };
 
@@ -928,11 +1122,18 @@ export const MissionProvider = ({ children }) => {
     ]);
   };
 
-  const approveAllCommands = async () => {
+  const approveAllCommands = async (sourceTag = null) => {
     if (!hasCommandAuthority) {
+      playAlertChime('DENIED');
       alert("Access Denied: Flight Director clearance is required to authorize spacecraft commands.");
       return;
     }
+
+    const validSource = typeof sourceTag === 'string' && sourceTag.trim() ? sourceTag.trim() : null;
+    const sourceSuffix = validSource ? ` [SOURCE: ${validSource}]` : '';
+    const noteText = validSource
+      ? `All staged contingency commands authorized after HITL confirmation (${validSource}).`
+      : 'All staged contingency commands authorized.';
 
     setCommands((prev) => prev.map((cmd) => ({ ...cmd, status: 'APPROVED' })));
 
@@ -950,21 +1151,29 @@ export const MissionProvider = ({ children }) => {
 
     if (selectedAnomalyId) {
       try {
-        await approveEvent(selectedAnomalyId, true, 'Flight Director Gene Kranz', 'All staged contingency commands authorized.');
+        await approveEvent(selectedAnomalyId, true, 'Flight Director Gene Kranz', noteText);
       } catch (err) {
         console.warn('Backend approve-all warning:', err);
       }
     }
-    const now = new Date().toTimeString().split(' ')[0];
-    setAuditLog((prev) => [
-      {
-        id: `evt_${Date.now()}`,
-        time: now,
+    if (validSource === 'VOICE_COMMAND') {
+      await recordVoiceAudit({
         type: 'OPERATOR_APPROVAL',
-        message: `EMERGENCY CONTINGENCY SEQUENCE AUTHORIZED: All staged commands approved and transmitted via DSN Madrid-63.`,
-      },
-      ...prev,
-    ]);
+        subsystem: 'FLIGHT CONTROL (VOICE_COMMS)',
+        message: `EMERGENCY CONTINGENCY SEQUENCE CONFIRMED: All staged commands authorized via HITL modal.${sourceSuffix}`,
+      });
+    } else {
+      const now = new Date().toTimeString().split(' ')[0];
+      setAuditLog((prev) => [
+        {
+          id: `evt_${Date.now()}`,
+          time: now,
+          type: 'OPERATOR_APPROVAL',
+          message: `EMERGENCY CONTINGENCY SEQUENCE AUTHORIZED: All staged commands approved and transmitted via DSN Madrid-63.${sourceSuffix}`,
+        },
+        ...prev,
+      ]);
+    }
 
     playAlertChime('success');
 
@@ -1110,6 +1319,402 @@ export const MissionProvider = ({ children }) => {
     playAlertChime('normal');
   }, [playAlertChime]);
 
+  // Confirm or cancel voice-initiated bulk command authorization modal
+  const confirmVoiceApproval = useCallback(async () => {
+    setPendingVoiceApproval(null);
+    await approveAllCommands('VOICE_COMMAND');
+    speakBriefing('Flight Director confirmation accepted. All staged contingency commands uplinked.', 'COMMAND_CONFIRMED');
+  }, [approveAllCommands, speakBriefing]);
+
+  const cancelVoiceApproval = useCallback(async () => {
+    setPendingVoiceApproval(null);
+    playAlertChime('WARNING');
+    await recordVoiceAudit({
+      type: 'WARNING',
+      subsystem: 'VOICE_COMMS (HITL)',
+      message: 'VOICE AUTHORIZATION CANCELED: Flight Director aborted HITL confirmation modal.',
+    });
+    speakBriefing('Command authorization canceled.', 'NORMAL');
+  }, [playAlertChime, recordVoiceAudit, speakBriefing]);
+
+  // Voice Command Natural Language Dispatcher
+  const executeVoiceCommand = useCallback(
+    async (transcript) => {
+      const intent = parseVoiceIntent(transcript, {
+        availableChannels: availableChannelsRef.current,
+        fleetNodes: fleetNodesRef.current,
+      });
+      if (!intent) return;
+
+      const scheduleFeedbackReset = () => {
+        clearTimeout(voiceFeedbackTimerRef.current);
+        voiceFeedbackTimerRef.current = setTimeout(() => {
+          setVoiceLastAction(null);
+        }, 6500);
+      };
+
+      switch (intent.type) {
+        case 'WAKE_ACK':
+          playAlertChime('NOMINAL');
+          setVoiceLastAction({ status: 'OK', summary: 'ASTRA Standing By', tag: 'WAKE' });
+          speakBriefing('ASTRA standing by.', 'NORMAL');
+          break;
+
+        case 'SWITCH_CHANNEL':
+          await switchActiveChannel(intent.channel);
+          playAlertChime('COMMAND_CONFIRMED');
+          setVoiceLastAction({
+            status: 'OK',
+            summary: `Channel → ${intent.channel}`,
+            tag: 'CHANNEL',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: `VOICE_COMMS (${intent.channel})`,
+            message: `Switched active telemetry stream to channel ${intent.channel} via spoken command "${transcript}".`,
+          });
+          speakBriefing(`Switched telemetry stream to channel ${intent.channel}.`, 'NORMAL');
+          break;
+
+        case 'NAVIGATE':
+          setActiveTab(intent.tab);
+          if (intent.subTab) {
+            setAnomalyCenterTab(intent.subTab);
+          }
+          playAlertChime('NOMINAL');
+          setVoiceLastAction({
+            status: 'OK',
+            summary: `Navigate → ${intent.label}`,
+            tag: 'NAV',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (NAV)',
+            message: `Navigated to ${intent.label} via spoken command "${transcript}".`,
+          });
+          speakBriefing(`Opening ${intent.label}.`, 'NORMAL');
+          break;
+
+        case 'RUN_AI_DIAGNOSTIC': {
+          const targetId =
+            selectedAnomalyIdRef.current ||
+            anomaliesRef.current[0]?.id ||
+            'ASTRA-P3-0001';
+          playAlertChime('COMMAND_CONFIRMED');
+          setVoiceLastAction({
+            status: 'OK',
+            summary: `Gemini AI Diagnostic → ${targetId}`,
+            tag: 'GEMINI AI',
+          });
+          await recordVoiceAudit({
+            type: 'AI_ACTION',
+            subsystem: 'VOICE_COMMS (GEMINI)',
+            message: `Triggered Gemini AI diagnostic on ${targetId} via spoken command "${transcript}".`,
+          });
+          speakBriefing(`Running Gemini AI diagnostic on ${targetId}.`, 'NORMAL');
+          await triggerGeminiAnalysis(targetId, { autoSpeak: true, bypassMute: true });
+          break;
+        }
+
+        case 'READ_DIAGNOSIS': {
+          const spoken = readDiagnosisAloud(null, { bypassMute: true });
+          setVoiceLastAction({
+            status: spoken ? 'OK' : 'ERROR',
+            summary: spoken ? 'Reading Gemini Diagnosis Aloud' : 'No Diagnosis Available',
+            tag: 'TTS',
+          });
+          if (!spoken) {
+            speakBriefing('No Gemini diagnosis is currently loaded on the selected anomaly.', 'NORMAL', { bypassMute: true });
+          } else {
+            await recordVoiceAudit({
+              type: 'VOICE_COMMAND',
+              subsystem: 'VOICE_COMMS (TTS)',
+              message: `Read active Gemini diagnosis aloud via spoken command "${transcript}".`,
+            });
+          }
+          break;
+        }
+
+        case 'STATUS_BRIEFING': {
+          const msg = buildStatusBriefing({
+            telemetry: telemetryRef.current,
+            activeChannel: activeChannelRef.current,
+            activeSpacecraft: activeSpacecraftRef.current,
+            isCrisis: isCrisisRef.current,
+            runwayAlarms: runwayAlarmsRef.current,
+          });
+          setVoiceLastAction({
+            status: 'OK',
+            summary: `Live Telemetry Briefing (${activeSpacecraftRef.current})`,
+            tag: 'STATUS',
+          });
+          speakBriefing(msg, 'HIGH', { bypassMute: true });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (STATUS)',
+            message: `Requested live telemetry voice briefing.`,
+          });
+          break;
+        }
+
+        case 'START_P3_REPLAY':
+          playAlertChime('COMMAND_CONFIRMED');
+          playNasaP3Stream(5300);
+          setVoiceLastAction({
+            status: 'OK',
+            summary: 'NASA P-3 Replay Initiated (Step 5300)',
+            tag: 'REPLAY',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (SIM)',
+            message: `Initiated NASA P-3 dataset replay at step 5300 via spoken command "${transcript}".`,
+          });
+          speakBriefing('Starting NASA P-3 dataset replay.', 'NORMAL');
+          break;
+
+        case 'RESET_NOMINAL':
+          resetToNominal();
+          playAlertChime('COMMAND_CONFIRMED');
+          setVoiceLastAction({
+            status: 'OK',
+            summary: 'Spacecraft Reset to Nominal',
+            tag: 'RESET',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (SIM)',
+            message: `Reset simulation telemetry to nominal baseline via spoken command "${transcript}".`,
+          });
+          speakBriefing('Spacecraft telemetry restored to nominal baseline.', 'NORMAL');
+          break;
+
+        case 'TRIGGER_CRISIS':
+          if (!hasCommandAuthorityRef.current) {
+            playAlertChime('DENIED');
+            setVoiceLastAction({
+              status: 'BLOCKED',
+              summary: 'RBAC Blocked: Flight Director Required',
+              tag: 'RBAC',
+            });
+            await recordVoiceAudit({
+              type: 'WARNING',
+              subsystem: 'VOICE_COMMS (RBAC)',
+              message: `BLOCKED: Telemetry Observer attempted to trigger crisis simulation "${transcript}".`,
+            });
+            speakBriefing('Access denied. Flight Director clearance is required to inject anomalies.', 'HIGH');
+            break;
+          }
+          triggerCrisis('Solar Array Strike & EPS Bus Failure');
+          setVoiceLastAction({
+            status: 'OK',
+            summary: 'Solar Array Crisis Injected',
+            tag: 'CRISIS',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (SIM)',
+            message: `Injected Solar Array Strike crisis scenario via spoken command "${transcript}".`,
+          });
+          break;
+
+        case 'SWITCH_SPACECRAFT':
+          await switchSpacecraft(intent.spacecraftId);
+          playAlertChime('COMMAND_CONFIRMED');
+          setVoiceLastAction({
+            status: 'OK',
+            summary: `Focus → ${intent.spacecraftId}`,
+            tag: 'FLEET',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: `VOICE_COMMS (${intent.spacecraftId})`,
+            message: `Switched constellation focus to ${intent.spacecraftId} via spoken command "${transcript}".`,
+          });
+          speakBriefing(`Switching telemetry focus to ${intent.label}.`, 'NORMAL');
+          break;
+
+        case 'APPROVE_ALL_COMMANDS':
+          if (!hasCommandAuthorityRef.current) {
+            playAlertChime('DENIED');
+            setVoiceLastAction({
+              status: 'BLOCKED',
+              summary: 'RBAC Denied: Flight Director Clearance Required',
+              tag: 'RBAC',
+            });
+            await recordVoiceAudit({
+              type: 'WARNING',
+              subsystem: 'VOICE_COMMS (RBAC)',
+              message: `ACCESS DENIED: Telemetry Observer attempted "${transcript}" without Flight Director clearance.`,
+            });
+            speakBriefing('Access denied. Flight Director clearance is required to authorize spacecraft commands.', 'HIGH');
+            break;
+          }
+          playAlertChime('WARNING');
+          setPendingVoiceApproval({
+            transcript,
+            anomalyId: selectedAnomalyIdRef.current,
+            commands: commandsRef.current,
+            operatorRole: operatorRoleRef.current,
+          });
+          setVoiceLastAction({
+            status: 'PENDING_CONFIRM',
+            summary: 'HITL Confirmation Modal Triggered',
+            tag: 'HITL',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (HITL)',
+            message: `Triggered Flight Director confirmation modal for bulk authorization via "${transcript}".`,
+          });
+          speakBriefing('Flight Director confirmation required. Please verify staged commands in the confirmation modal.', 'HIGH');
+          break;
+
+        case 'APPROVE_NEXT_COMMAND': {
+          if (!hasCommandAuthorityRef.current) {
+            playAlertChime('DENIED');
+            setVoiceLastAction({
+              status: 'BLOCKED',
+              summary: 'RBAC Denied: Flight Director Clearance Required',
+              tag: 'RBAC',
+            });
+            await recordVoiceAudit({
+              type: 'WARNING',
+              subsystem: 'VOICE_COMMS (RBAC)',
+              message: `ACCESS DENIED: Telemetry Observer attempted "${transcript}" without Flight Director clearance.`,
+            });
+            speakBriefing('Access denied. Flight Director clearance is required to authorize spacecraft commands.', 'HIGH');
+            break;
+          }
+          const nextPending =
+            commandsRef.current.find((c) => c.status !== 'APPROVED' && c.status !== 'REJECTED') ||
+            commandsRef.current[0];
+          if (nextPending) {
+            playAlertChime('WARNING');
+            setVoiceLastAction({
+              status: 'PENDING_CONFIRM',
+              summary: `Crypto Handshake → ${nextPending.id}`,
+              tag: 'UPLINK',
+            });
+            await recordVoiceAudit({
+              type: 'VOICE_COMMAND',
+              subsystem: 'VOICE_COMMS (HITL)',
+              message: `Initiated secure T-10s uplink handshake for command ${nextPending.id} via "${transcript}".`,
+            });
+            speakBriefing(`Initiating secure authorization window for ${nextPending.name}. Confirm or abort within 10 seconds.`, 'HIGH');
+            await approveCommand(nextPending.id);
+          } else {
+            setVoiceLastAction({
+              status: 'ERROR',
+              summary: 'No Pending Commands Available',
+              tag: 'EMPTY',
+            });
+            speakBriefing('No staged commands are queued on the active anomaly.', 'NORMAL');
+          }
+          break;
+        }
+
+        case 'SET_AUDIO_MUTE':
+          updateSettingsConfig({ audioAlertsEnabled: !intent.muted });
+          audioAlertsEnabledRef.current = !intent.muted;
+          if (intent.muted) {
+            stopAllVoiceAudio();
+          } else {
+            playAcousticAlert('COMMAND_CONFIRMED', { enabled: true });
+            speakBriefing('Acoustic alerts and voice briefings enabled.', 'NORMAL', { bypassMute: true });
+          }
+          setVoiceLastAction({
+            status: 'OK',
+            summary: intent.muted ? 'Audio Alerts Muted' : 'Audio Alerts Enabled',
+            tag: 'AUDIO',
+          });
+          await recordVoiceAudit({
+            type: 'VOICE_COMMAND',
+            subsystem: 'VOICE_COMMS (AUDIO)',
+            message: `${intent.muted ? 'Muted' : 'Unmuted'} procedural audio alerts via spoken command.`,
+          });
+          break;
+
+        case 'STOP_SPEAKING':
+          stopAllVoiceAudio();
+          setVoiceLastAction({ status: 'OK', summary: 'TTS Readout Silenced', tag: 'AUDIO' });
+          break;
+
+        case 'UNKNOWN_CHANNEL':
+          playAlertChime('DENIED');
+          setVoiceLastAction({
+            status: 'ERROR',
+            summary: `Channel Not Found: "${transcript}"`,
+            tag: 'CHANNEL',
+          });
+          speakBriefing('Requested telemetry channel was not found in the active 82-channel matrix.', 'NORMAL');
+          break;
+
+        default:
+          setVoiceLastAction({
+            status: 'ERROR',
+            summary: `No matching intent: "${transcript}"`,
+            tag: 'UNKNOWN',
+          });
+          break;
+      }
+
+      scheduleFeedbackReset();
+    },
+    [
+      playAlertChime,
+      speakBriefing,
+      switchActiveChannel,
+      recordVoiceAudit,
+      setActiveTab,
+      triggerGeminiAnalysis,
+      readDiagnosisAloud,
+      playNasaP3Stream,
+      resetToNominal,
+      triggerCrisis,
+      switchSpacecraft,
+      approveCommand,
+      updateSettingsConfig,
+      stopAllVoiceAudio,
+    ]
+  );
+
+  const executeVoiceCommandRef = useRef(executeVoiceCommand);
+  executeVoiceCommandRef.current = executeVoiceCommand;
+
+  useEffect(() => {
+    const controller = new VoiceCommandController({
+      onStatusChange: (status) => setVoiceStatus(status),
+      onInterimTranscript: (interim) => setVoiceTranscript(interim),
+      onFinalTranscript: (finalText) => {
+        setVoiceTranscript(finalText);
+        executeVoiceCommandRef.current?.(finalText);
+      },
+      onError: (errMsg) => {
+        setVoiceLastAction({
+          status: 'ERROR',
+          summary: errMsg,
+          tag: 'MIC',
+        });
+      },
+    });
+    voiceControllerRef.current = controller;
+    return () => {
+      controller.destroy();
+      clearTimeout(voiceFeedbackTimerRef.current);
+    };
+  }, []);
+
+  const toggleVoiceListening = useCallback(() => {
+    const ctrl = voiceControllerRef.current;
+    if (!ctrl) return;
+    if (ctrl.isArmed) {
+      ctrl.stop();
+    } else {
+      ctrl.start();
+    }
+  }, []);
+
   const selectedAnomaly =
     anomalies.find((a) => a.id === selectedAnomalyId) ||
     anomalies[0] ||
@@ -1176,6 +1781,22 @@ export const MissionProvider = ({ children }) => {
         settingsConfig,
         updateSettingsConfig,
         playAlertChime,
+        // Voice-Controlled Mission Control & Audio Synthesis
+        voiceStatus,
+        voiceTranscript,
+        voiceLastAction,
+        isSpeaking,
+        toggleVoiceListening,
+        clearVoiceFeedback,
+        toggleAudioAlerts,
+        stopAllVoiceAudio,
+        speakBriefing,
+        readDiagnosisAloud,
+        pendingVoiceApproval,
+        confirmVoiceApproval,
+        cancelVoiceApproval,
+        anomalyCenterTab,
+        setAnomalyCenterTab,
       }}
     >
       {children}

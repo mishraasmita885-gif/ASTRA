@@ -27,7 +27,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 1. Why Does ASTRA Exist?
 2. The Big Idea (The Solution)
 3. System Architecture
-4. Every Feature Explained (Features 1 through 22)
+4. Every Feature Explained (Features 1 through 23)
 5. The Complete User Journey (Step-by-Step)
 6. The Technology Stack
 7. The AI Brain — Gemini Multi-Model Cascade & Aerospace Copilot
@@ -36,7 +36,7 @@ It is like having a **very smart co-pilot** for spacecraft operations.
 10. Human-in-the-Loop Safety & Role-Based Access Control (RBAC)
 11. Persistent Database Architecture (SQLite astra.db & JSON Store)
 12. The Design System & Dual-View Print Architecture
-13. All 12 Pages, Modals, and Drawers Explained
+13. All 12 Pages, Modals, Drawers, and Voice HUD Explained
 14. How Commands Work (Approve / Reject Flow)
 15. Deployment Architecture
 16. File Structure
@@ -566,6 +566,36 @@ This means ASTRA **never fails** to produce a diagnosis.
 
 ---
 
+### Feature 23: Voice-Controlled Mission Control & Synthesized Audio Telemetry Alerts
+**What it is:** A hands-free **Voice-Controlled Mission Control** and **Procedural Audio Telemetry Alert** system powered strictly by browser-native **Web Speech API** (`SpeechRecognition` / `webkitSpeechRecognition` and `SpeechSynthesis`) and the **Web Audio API** (`OscillatorNode` + `GainNode`). Operators speak natural flight-control commands directly into the **Voice Comms Transceiver** (`VoiceCommsWidget.jsx`) in the console header while receiving real-time procedural acoustic alarms and dynamically synthesized spoken operational briefings on anomaly state transitions and Gemini diagnostics.
+
+**CRITICAL ARCHITECTURAL GUARANTEE:** ZERO HARDCODED AUDIO FILES, STATIC SOUND CLIPS, OR CANNED BRIEFINGS. All acoustic chimes are generated procedurally in real time via Web Audio oscillators; all voice command intents resolve dynamically against the live 82-channel telemetry matrix and active constellation nodes; and all spoken TTS briefings construct telemetry figures, thresholds, and Gemini diagnoses dynamically from live runtime state.
+
+**Key Technical Capabilities:**
+1. **Procedural Web Audio API Alarm Synthesizer (`frontend/src/services/voiceAudioEngine.js`):**
+   - `playAcousticAlert(severity)` generates distinct mission-control tones via `AudioContext`, `OscillatorNode`, and `GainNode` envelopes:
+     - `CRITICAL`: Dual-tone staggered square/sine master alarm pulse ($880\,\text{Hz} \rightarrow 1046.5\,\text{Hz}$).
+     - `HIGH` / `WARNING`: Single crisp triangle/sine telemetry attention chime ($660\,\text{Hz}$).
+     - `COMMAND_CONFIRMED` / `SUCCESS`: Ascending two-note harmonic confirmation ($523.25\,\text{Hz} \rightarrow 783.99\,\text{Hz}$).
+     - `DENIED` / `ERROR`: Low descending caution tone ($330\,\text{Hz} \rightarrow 220\,\text{Hz}$) on RBAC lockouts or unknown requests.
+   - Respects the synchronized global **Audio Alarm Synthesis** toggle in `SettingsPage.jsx`, `VoiceCommsWidget.jsx`, and `MissionContext.jsx`.
+2. **Dynamic Text-to-Speech Operational Briefings (`window.speechSynthesis`):**
+   - `speakOperationalBriefing(text, priority)` selects an authoritative English voice and immediately interrupts lower-priority queued chatter whenever a `CRITICAL` or `HIGH` anomaly strikes.
+   - Dynamic builders (`buildAnomalyBriefing`, `buildDiagnosisBriefing`, `buildStatusBriefing`) compose live spoken readouts using instantaneous deviation scores, calibrated thresholds, bus voltage, core temperature, and active Gemini root-cause hypotheses.
+   - One-click **"Read Diagnosis Aloud" / "Stop"** TTS controls embedded in **Anomaly Center** (`AnomalyCenterPage.jsx`), **AI Copilot** (`AIAssistantPage.jsx`), and the **Fault Tree Node Inspection Drawer** (`NodeInspectionModal.jsx`).
+3. **Speech-to-Text Natural Language Command Listener (`VoiceCommandController`):**
+   - Supports continuous & push-to-toggle recognition (`MIC STANDBY`, `LISTENING...`, `UNSUPPORTED`) with real-time interim transcript ticker display in `Header.jsx`.
+   - `parseVoiceIntent()` & `resolveSpokenChannel()` dynamically handle 15 operational intents across the live app state:
+     - **Dynamic 82-Channel Switching:** Maps spoken aliases (e.g., *"ASTRA, switch channel to P-3"*, *"monitor thermal 2"*, *"select C-14"*) against the live 82-channel backend list and calls `switchActiveChannel()`.
+     - **Page & Sub-View Navigation:** Routes directly to all 12 mission consoles and Anomaly Center sub-tabs (e.g., *"Open Anomaly Center"*, *"Show Fault Tree"*, *"Open Event Log"*).
+     - **AI Diagnostic Execution:** Phrases like *"Run AI diagnostic"* invoke `POST /api/events/{id}/analyze` via `triggerGeminiAnalysis()` and read back the Gemini diagnosis aloud via TTS.
+     - **Simulation, Replay & Constellation Focus:** Triggers *"Start P-3 replay"*, *"Reset nominal"*, or switches fleet focus between Alpha, Beta, and Gamma.
+4. **Immutable HITL & RBAC Safety Interlock (`VoiceApprovalConfirmModal.jsx`) + Audit Persistence (`POST /api/audit-log`):**
+   - Spoken command approval phrases (*"Approve all commands"*, *"Authorize next command"*) NEVER execute spacecraft actions silently: `TELEMETRY_OBSERVER` roles are immediately blocked with acoustic `DENIED` feedback and a logged violation, while `FLIGHT_DIRECTOR` requests trigger `VoiceApprovalConfirmModal.jsx` (or the T-10s `SecureUplinkModal.jsx`) requiring explicit visual confirmation.
+   - All voice-initiated actions persist to SQLite `astra.db` and `event_store.json` via `POST /api/audit-log` tagged with `[SOURCE: VOICE_COMMAND]` and filterable via the `VOICE_COMMAND` badge tab in `EventLogPage.jsx`.
+
+---
+
 ## 5. The Complete User Journey (Step-by-Step)
 
 **STEP 1 — Landing & Shader Experience**
@@ -629,7 +659,14 @@ When the Flight Director approves a staged recovery command, ASTRA executes an a
 4. If allowed to expire (T-0), the command is automatically transmitted over the DSN, executed on the spacecraft, and permanently notarized with its HMAC signature in the SQLite `astra.db` ledger and official NASA flight debrief reports. Operators can also re-arm or stage new contingency commands at will for complete operational control.
 
 **STEP 15 — Persistence Verification & Nominal Reset**
-The operator navigates to the Event Log to inspect the chronological timeline. Every action—channel switches, spacecraft focus changes, AI diagnostic runs, cryptographic signatures, command authorizations, and role updates—is permanently recorded in SQLite `astra.db` (Write-Ahead Logging mode) and exported as JSON. Finally, clicking "Reset Nominal" restores telemetry to baseline values, clearing all active alarms.
+The operator navigates to the Event Log to inspect the chronological timeline. Every action—channel switches, spacecraft focus changes, AI diagnostic runs, cryptographic signatures, command authorizations, voice commands, and role updates—is permanently recorded in SQLite `astra.db` (Write-Ahead Logging mode) and exported as JSON. Finally, clicking "Reset Nominal" restores telemetry to baseline values, clearing all active alarms.
+
+**STEP 16 — Hands-Free Voice-Controlled Mission Control & Synthesized Audio Alerts**
+The operator clicks the **Voice Comms Transceiver** microphone button in the top navigation header (`MIC STANDBY` $\rightarrow$ `LISTENING...`) and speaks natural flight-control commands while monitoring the live interim transcript ticker:
+1. Speaking *"ASTRA, switch channel to P-3"* or *"Monitor thermal 2"* dynamically resolves against the live 82-channel telemetry matrix and switches the active stream without dropping the WebSocket connection.
+2. When a live anomaly or NASA P-3 replay crosses the calibrated detector threshold (`0.3889`), the Web Audio API synthesizer automatically sounds a procedural severity-matched chime and `SpeechSynthesis` delivers a dynamic spoken telemetry readout with live voltage, temperature, and deviation score.
+3. Speaking *"Run AI diagnostic"* executes Gemini reasoning on the active incident and reads the resulting root cause and recommended countermeasure aloud.
+4. If the operator speaks *"Approve all commands"*, ASTRA enforces Safety Rule 1.1: `TELEMETRY_OBSERVER` users are denied with an acoustic caution alert, while `FLIGHT_DIRECTOR` users are presented with the **HITL Voice Authorization Interlock Modal** (`VoiceApprovalConfirmModal.jsx`) before any uplink proceeds. Every voice action is permanently committed to SQLite `astra.db` tagged with `[SOURCE: VOICE_COMMAND]`.
 
 ---
 
@@ -648,6 +685,9 @@ The operator navigates to the Event Log to inspect the chronological timeline. E
 | **Keyboard Navigation System** | Global keyboard listeners for <kbd>Ctrl</kbd>+<kbd>K</kbd>, auto-scrolling arrow navigation, and pointer guards |
 | **Lucide Icons** | High-precision vector iconography across navigation, metrics, and subsystem badges |
 | **WebGL Custom Shader** | Pure GLSL fragment shader (`SilkWaves.jsx`) generating procedural organic fluid waves |
+| **Web Speech API (SpeechRecognition)** | Continuous & push-to-talk natural language voice listener (`voiceAudioEngine.js`) |
+| **Web Speech API (SpeechSynthesis)** | Priority-interrupting dynamic TTS engine reading telemetry and Gemini diagnoses aloud |
+| **Web Audio API (Oscillator Synthesis)** | Zero-asset procedural chime synthesizer (`OscillatorNode` + `GainNode` severity alarms) |
 
 ### Backend Architecture
 
@@ -994,7 +1034,7 @@ A standout feature of ASTRA is its **Dual-View Print Engine** built for official
 
 ---
 
-## 13. All 12 Pages, Modals, and Drawers Explained
+## 13. All 12 Pages, Modals, Drawers, and Voice HUD Explained
 
 ### Page 1: Welcome Page (`WelcomePage.jsx`)
 The immersive operational threshold of ASTRA.
@@ -1119,6 +1159,18 @@ Tactical proactive warning banner mounted across the Live Telemetry and Anomaly 
 - **Severity-Driven Neo-Brutalist Styling:** Pulsing dark red container for Critical breaches; dark brown with amber accents for Warning breaches.
 - **Multi-Alarm Navigation & Dismissal:** Allows cycling between multiple simultaneous runway alarms or dismissing individual alerts with permanent high-contrast action buttons.
 
+### Global Modal 4: HITL Voice Authorization Interlock (`VoiceApprovalConfirmModal.jsx`)
+Safety confirmation dialog safeguarding spoken command authorization requests (`"Approve all commands"`).
+- **Intercepted Transcript Verification:** Displays the exact recognized utterance tagged `SOURCE: VOICE_COMMAND` alongside the active operator RBAC role (`FLIGHT_DIRECTOR`).
+- **Safety Rule 1.1 Notice & Command Preview:** Lists all pending staged contingency commands queued for uplink before execution.
+- **Explicit Visual Confirmation:** Enforces manual click authorization (`Confirm & Authorize Uplink`) or keyboard abort (`Cancel (ESC)`), preventing unverified hands-free uplinks.
+
+### Global HUD: Voice Comms Transceiver Widget (`VoiceCommsWidget.jsx`)
+Tactile Swiss Neo-Brutalist voice control module mounted inside the top navigation bar (`Header.jsx`).
+- **Live Microphone Status:** Displays `MIC STANDBY`, pulsing amber/crimson `LISTENING...`, or `UNSUPPORTED` with browser compatibility guidance.
+- **Interim Transcript Ticker:** Zero-layout-shift dropdown ticker echoing live recognized words and execution status badges (`OK`, `BLOCKED`, `PENDING_CONFIRM`, `ERROR`).
+- **Master Audio Mute/Unmute Toggle:** Synchronizes procedural alarm chimes and TTS briefings across `VoiceCommsWidget`, `SettingsPage`, and `MissionContext`.
+
 ---
 
 ## 14. How Commands Work (Approve / Reject Flow)
@@ -1240,7 +1292,7 @@ d:\Competition\Hackspire\
 │       ├── index.css                    Swiss Brutalist design tokens & @media print rules
 │       │
 │       ├── context/
-│       │   └── MissionContext.jsx       Global state: telemetry, anomalies, RBAC, WS, FTA, crypto
+│       │   └── MissionContext.jsx       Global state: telemetry, anomalies, RBAC, WS, FTA, crypto, voice/audio
 │       │
 │       ├── pages/
 │       │   ├── WelcomePage.jsx          Animated landing page with WebGL shader
@@ -1252,16 +1304,18 @@ d:\Competition\Hackspire\
 │       │   ├── SubsystemsPage.jsx       Detailed subsystem engineering monitors
 │       │   ├── AIAssistantPage.jsx      Interactive copilot with StructuredMarkdown
 │       │   ├── SimulationPage.jsx       Crisis simulation testbed and safety interlock
-│       │   ├── EventLogPage.jsx         Chronological audit trail and timeline with HMAC badges
+│       │   ├── EventLogPage.jsx         Chronological audit trail and timeline with HMAC & VOICE badges
 │       │   ├── MissionReportsPage.jsx   Dual-view flight audit & official NASA PDF debrief
-│       │   └── SettingsPage.jsx         RBAC clearance switcher & platform diagnostics
+│       │   └── SettingsPage.jsx         RBAC clearance switcher, audio/TTS tests & diagnostics
 │       │
 │       ├── components/
-│       │   ├── Header.jsx               Top console header with constellation & channel switcher
-│       │   ├── Layout.jsx               Master shell layout hosting modals and sidebar
+│       │   ├── Header.jsx               Top console header with constellation, channel & Voice HUD
+│       │   ├── Layout.jsx               Master shell layout hosting modals, voice interlock & sidebar
 │       │   ├── SilkWaves.jsx            Custom WebGL fragment shader for fluid waves
 │       │   ├── CommandPaletteModal.jsx  Ctrl+K command palette with auto-scrolling
 │       │   ├── SecureUplinkModal.jsx    T-10s circular countdown abort handshake modal with HMAC
+│       │   ├── VoiceCommsWidget.jsx     Voice Comms Transceiver HUD with live transcript ticker
+│       │   ├── VoiceApprovalConfirmModal.jsx HITL confirmation modal for voice-triggered approvals
 │       │   ├── NodeInspectionModal.jsx  Fault Tree Subsystem & Telemetry inspection drawer
 │       │   ├── FaultTreeGraph.jsx       High-performance SVG cascading failure propagation graph
 │       │   ├── RunwayAlarmBanner.jsx    Tactical predictive horizon breach countdown warning banner
@@ -1272,7 +1326,8 @@ d:\Competition\Hackspire\
 │       │   └── SynchronizedWaveformChart.jsx Multi-channel synchronized chart with +25s horizon
 │       │
 │       ├── services/
-│       │   └── api.js                   REST API client (telemetry, AI, copilot, reports, fleet, FTA, crypto)
+│       │   ├── api.js                   REST API client (telemetry, AI, copilot, reports, fleet, FTA, crypto, audit)
+│       │   └── voiceAudioEngine.js      Web Audio synthesizer, SpeechSynthesis briefings & SpeechRecognition NLP
 │       │
 │       └── data/
 │           └── mockData.js              Baseline nominal and anomaly flight parameters
@@ -1296,7 +1351,7 @@ d:\Competition\Hackspire\
         │
         ├── routers/
         │   ├── websocket.py             WebSocket endpoint (/ws/telemetry?spacecraft_id=)
-        │   ├── telemetry.py             Telemetry snapshot REST endpoints
+        │   ├── telemetry.py             Telemetry snapshot & persistent POST /audit-log REST endpoints
         │   ├── events.py                Anomaly detection and AI reasoning endpoints
         │   ├── copilot.py               Interactive aerospace copilot chat endpoint
         │   ├── reports.py               Flight debrief and audit export endpoints
@@ -1335,7 +1390,10 @@ d:\Competition\Hackspire\
 | **Telemetry Ingestion Rate** | **1.2 Seconds** | Real-time full-duplex WebSocket tick rate |
 | **AI Model Fallback Cascade** | **15+ Models** | High resilience against cloud rate limits and outages |
 | **Fallback Reasoner Latency** | **< 5 Milliseconds** | Deterministic local safety net guaranteeing uptime |
-| **Frontend Architecture** | **12 Pages + 3 Modals/Drawers** | Complete mission control deck with FTA drawer and Crypto Handshake modal |
+| **Frontend Architecture** | **12 Pages + 4 Modals/Drawers + Voice HUD** | Complete mission control deck with FTA drawer, Crypto Handshake & Voice HITL modal |
+| **Speech Recognition Engine** | **15+ Voice Intents** | Dynamic Web Speech NLP resolving across 82 channels, fleet nodes & API triggers |
+| **Procedural Chime Frequencies** | **880 / 1046.5 / 660 / 523.25 Hz** | Zero-asset Web Audio oscillators for CRITICAL, HIGH & COMMAND_CONFIRMED alerts |
+| **HITL Voice Confirmation Interlocks** | **100% Enforced** | Voice approval commands require Flight Director RBAC + visual modal sign-off |
 | **Dual-View Output Modes** | **2 Views** | Interactive Swiss Brutalist Web UI vs NASA Print Whitepaper |
 | **Relational Database Tables** | **7 Tables** | SQLite WAL mode (`events`, `audit_log`, `spacecraft_nodes`, `isl_links`, `telemetry_frames`, `staged_commands`, `tle_cache`) |
 | **Cryptographic Uplink Signature** | **HMAC-SHA256 (64-char)** | Dynamic cryptographic authorization token with 10.0s abort window |
@@ -1366,6 +1424,7 @@ ASTRA represents a major leap forward in modern spacecraft mission control softw
 11. **Predictive Time-Series Forecasting & Runway Horizon Alarms:** Employs rolling 60-tick OLS regression to project future sensor trajectories +25s ahead, computing dynamic countdowns before safety threshold breaches.
 12. **Interactive Fault Tree Analysis (FTA) & Cascading Failure Engine:** Computes and animates the propagation of subsystem anomalies across a 4-layer dependency tree, with an interactive telemetry inspection drawer.
 13. **Aerospace Cryptographic Command Uplink & 10s Handshake Timers:** Secures all command transmissions with live HMAC-SHA256 tokens, enforcing a T-minus 10-second circular countdown abort window with permanent SQLite ledger notarization.
+14. **Voice-Controlled Mission Control & Procedural Audio Telemetry Alerts:** Enables hands-free natural language spacecraft operations via Web Speech `SpeechRecognition`, priority-interrupting `SpeechSynthesis` operational briefings, zero-asset Web Audio API alarm synthesis, and strict HITL/RBAC voice confirmation logging (`SOURCE: VOICE_COMMAND`).
 
 ---
 

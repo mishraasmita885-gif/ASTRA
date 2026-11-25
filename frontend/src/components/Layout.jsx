@@ -4,6 +4,7 @@ import { Header } from './Header';
 import { useMission } from '../context/MissionContext';
 import { SilkWaves } from './ui/silk-waves';
 import { SecureUplinkModal } from './SecureUplinkModal';
+import { VoiceApprovalConfirmModal } from './VoiceApprovalConfirmModal';
 
 const SILK_WAVE_COLORS = [
   '#ffffff', // Radiant pure white crest
@@ -28,6 +29,9 @@ export const Layout = ({ children }) => {
     setPendingSecureUplink,
     handleAbortSecureUplink,
     handleTransmitSecureUplink,
+    pendingVoiceApproval,
+    confirmVoiceApproval,
+    cancelVoiceApproval,
   } = useMission();
 
   return (
@@ -87,6 +91,16 @@ export const Layout = ({ children }) => {
           onAbort={handleAbortSecureUplink}
           onTransmit={handleTransmitSecureUplink}
           onClose={() => setPendingSecureUplink(null)}
+        />
+      )}
+
+      {/* Voice HITL Confirmation Interlock Modal */}
+      {pendingVoiceApproval && (
+        <VoiceApprovalConfirmModal
+          isOpen={Boolean(pendingVoiceApproval)}
+          approvalRequest={pendingVoiceApproval}
+          onConfirm={confirmVoiceApproval}
+          onCancel={cancelVoiceApproval}
         />
       )}
     </div>

@@ -18,6 +18,8 @@ import {
   RotateCcw,
   Clock,
   Layers,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 const SUBSYSTEM_ICONS = {
@@ -67,6 +69,9 @@ export const NodeInspectionModal = ({ node, onClose }) => {
     switchActiveChannel,
     setActiveTab,
     operatorRole,
+    readDiagnosisAloud,
+    isSpeaking,
+    stopAllVoiceAudio,
   } = useMission();
 
   // Close on ESC key
@@ -96,6 +101,7 @@ export const NodeInspectionModal = ({ node, onClose }) => {
 
   // Find the primary anomaly (or most critical)
   const primaryAnomaly = relatedAnomalies[0] || null;
+  const activeDiagnosis = primaryAnomaly?.gemini_analysis || primaryAnomaly?.geminiDiagnosis || null;
 
   // Staged commands applicable to this anomaly or subsystem
   const stagedCommands = useMemo(() => {
@@ -271,22 +277,39 @@ export const NodeInspectionModal = ({ node, onClose }) => {
               <span className="flex items-center gap-1.5 text-purple-900 font-bold">
                 <Sparkles className="w-3.5 h-3.5 text-purple-700" /> GEMINI AI DIAGNOSTICS
               </span>
-              {primaryAnomaly?.gemini_analysis && (
-                <span className="text-[9px] px-1.5 py-0.2 bg-purple-200 border border-purple-800 text-purple-900 font-bold">
-                  DIAGNOSED
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                {activeDiagnosis && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        isSpeaking
+                          ? stopAllVoiceAudio()
+                          : readDiagnosisAloud(primaryAnomaly, { bypassMute: true })
+                      }
+                      className="voice-tts-btn px-1.5 py-0.5 bg-[#fea619] hover:bg-[#e59414] text-[#24140b] border border-[#452a19] text-[9px] font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      {isSpeaking ? <VolumeX className="w-2.5 h-2.5" /> : <Volume2 className="w-2.5 h-2.5" />}
+                      <span>{isSpeaking ? 'STOP' : 'READ ALOUD'}</span>
+                    </button>
+                    <span className="text-[9px] px-1.5 py-0.2 bg-purple-200 border border-purple-800 text-purple-900 font-bold">
+                      DIAGNOSED
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
 
-            {primaryAnomaly?.gemini_analysis ? (
+            {activeDiagnosis ? (
               <div className="space-y-2 text-xs">
                 <div className="p-2 bg-purple-50 border border-purple-300 text-[#452a19]">
                   <p className="font-semibold text-purple-950">
-                    {primaryAnomaly.gemini_analysis.diagnosis || primaryAnomaly.gemini_analysis.root_cause || 'Subsystem anomaly detected with downstream cascading vectors.'}
+                    {activeDiagnosis.diagnosis || activeDiagnosis.rootCause || activeDiagnosis.root_cause || 'Subsystem anomaly detected with downstream cascading vectors.'}
                   </p>
-                  {primaryAnomaly.gemini_analysis.recommended_action && (
+                  {(activeDiagnosis.recommended_action || activeDiagnosis.recommendedAction || activeDiagnosis.recommendation) && (
                     <div className="mt-2 text-[11px] text-purple-900">
-                      <strong>Recommended Countermeasure:</strong> {primaryAnomaly.gemini_analysis.recommended_action}
+                      <strong>Recommended Countermeasure:</strong>{' '}
+                      {activeDiagnosis.recommended_action || activeDiagnosis.recommendedAction || activeDiagnosis.recommendation}
                     </div>
                   )}
                 </div>

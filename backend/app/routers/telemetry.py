@@ -169,3 +169,36 @@ def get_audit_log(limit: int = Query(default=50, le=200)):
     Retrieve mission control audit trail and operator approvals.
     """
     return event_store.list_audit_log(limit=limit)
+
+
+class AuditLogCreateRequest(BaseModel):
+    type: str = Field(default="COMMAND_UPLINK", description="Audit log severity/category")
+    subsystem: str = Field(default="VOICE_COMMS", description="Originating subsystem")
+    event: str = Field(..., description="Human-readable event message")
+    source: str = Field(default="VOICE_COMMAND", description="Execution origin tag")
+    telemetry_summary: Optional[Dict[str, Any]] = Field(default=None)
+
+
+@router.post("/audit-log")
+def create_audit_log(payload: AuditLogCreateRequest):
+    """
+    Persist UI-originated operational actions (e.g., SOURCE: VOICE_COMMAND)
+    into SQLite astra.db audit_log and disk-backed event store.
+    """
+    source_tag = (payload.source or "VOICE_COMMAND").strip().upper()
+    event_text = payload.event.strip()
+    if source_tag and f"SOURCE: {source_tag}" not in event_text:
+        event_text = f"{event_text} [SOURCE: {source_tag}]"
+
+    event_store.add_audit_entry(
+        type_=payload.type,
+        subsystem=payload.subsystem,
+        event=event_text,
+        telemetry_summary=payload.telemetry_summary,
+    )
+    latest = event_store.list_audit_log(limit=1)
+    return {
+        "status": "LOGGED",
+        "source": source_tag,
+        "entry": latest[0] if latest else None,
+    }

@@ -22,6 +22,8 @@ import {
   Cpu,
   ChevronRight,
   RefreshCw,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 export const AIAssistantPage = () => {
@@ -37,6 +39,9 @@ export const AIAssistantPage = () => {
     triggerGeminiAnalysis,
     setActiveTab,
     activeChannel,
+    readDiagnosisAloud,
+    isSpeaking,
+    stopAllVoiceAudio,
   } = useMission();
 
   const currentAnalysis = selectedAnomaly?.geminiDiagnosis;
@@ -283,10 +288,34 @@ export const AIAssistantPage = () => {
           {/* Detailed Diagnosis & Evidence Column (8 cols) */}
           <div className="md:col-span-8 flex flex-col gap-4">
             <div className="p-5 rounded-2xl bg-purple-50/50 border border-purple-200/80 flex flex-col gap-3">
-              <span className="font-mono text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                Structured Engineering Diagnosis
-              </span>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <span className="font-mono text-xs font-bold uppercase tracking-wider text-purple-900 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                  Structured Engineering Diagnosis
+                </span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    isSpeaking
+                      ? stopAllVoiceAudio()
+                      : readDiagnosisAloud(selectedAnomaly, { bypassMute: true })
+                  }
+                  className="voice-tts-btn px-2.5 py-1 rounded border border-[#452a19] bg-[#fea619] hover:bg-[#e59414] text-[#24140b] font-mono text-[10px] font-bold uppercase shadow-[1px_1px_0_#452a19] flex items-center gap-1 cursor-pointer transition-all"
+                  title="Read structured diagnosis aloud via TTS"
+                >
+                  {isSpeaking ? (
+                    <>
+                      <VolumeX className="w-3 h-3" />
+                      <span>Stop Audio</span>
+                    </>
+                  ) : (
+                    <>
+                      <Volume2 className="w-3 h-3" />
+                      <span>Read Diagnosis Aloud</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <p className="text-sm font-mono text-[#161514] leading-relaxed">
                 {currentAnalysis?.rootCause ||

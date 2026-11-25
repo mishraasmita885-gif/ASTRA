@@ -22,6 +22,8 @@ import {
   Lock,
   RotateCcw,
   Plus,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
 
 export const AnomalyCenterPage = () => {
@@ -42,9 +44,15 @@ export const AnomalyCenterPage = () => {
     triggerGeminiAnalysis,
     runwayAlarms,
     faultTreeGraph,
+    readDiagnosisAloud,
+    isSpeaking,
+    stopAllVoiceAudio,
+    anomalyCenterTab,
+    setAnomalyCenterTab,
   } = useMission();
 
-  const [activeTab, setActiveTab] = useState('inspector'); // 'inspector' | 'fault-tree' | 'benchmarks'
+  const activeTab = anomalyCenterTab || 'inspector';
+  const setActiveTab = setAnomalyCenterTab;
   const [selectedInspectionNode, setSelectedInspectionNode] = useState(null); // 'inspector' | 'benchmarks'
   const [metrics, setMetrics] = useState({
     nasa_68_channel_benchmark: {
@@ -152,7 +160,7 @@ export const AnomalyCenterPage = () => {
           </div>
 
           <button
-            onClick={approveAllCommands}
+            onClick={() => approveAllCommands()}
             className="px-3 py-1 rounded-full bg-[#fea619] hover:bg-[#fea619]/90 text-[#233446] font-display text-xs font-bold uppercase shadow-xs transition-colors cursor-pointer"
           >
             Approve All Staged Commands
@@ -454,14 +462,38 @@ export const AnomalyCenterPage = () => {
               {/* Gemini Structured AI Reasoning */}
               {selectedAnomaly?.geminiDiagnosis && (
                 <div className="rounded-xl p-4 bg-purple-50/60 border border-purple-200/80 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center gap-2 text-xs font-display font-bold text-purple-900">
                       <Sparkles className="w-4 h-4 text-purple-600" />
                       <span>{selectedAnomaly.geminiDiagnosis.model}</span>
                     </div>
-                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">
-                      Confidence: {selectedAnomaly.mlConfidence}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          isSpeaking
+                            ? stopAllVoiceAudio()
+                            : readDiagnosisAloud(selectedAnomaly, { bypassMute: true })
+                        }
+                        className="voice-tts-btn px-2.5 py-0.5 rounded border border-[#452a19] bg-[#fea619] hover:bg-[#e59414] text-[#24140b] font-mono text-[10px] font-bold uppercase shadow-[1px_1px_0_#452a19] flex items-center gap-1 cursor-pointer transition-all"
+                        title="Read Gemini root cause and recommendation aloud via Web Speech TTS"
+                      >
+                        {isSpeaking ? (
+                          <>
+                            <VolumeX className="w-3 h-3" />
+                            <span>Stop Readout</span>
+                          </>
+                        ) : (
+                          <>
+                            <Volume2 className="w-3 h-3" />
+                            <span>Read Diagnosis Aloud</span>
+                          </>
+                        )}
+                      </button>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-200 text-purple-900 font-bold">
+                        Confidence: {selectedAnomaly.mlConfidence}
+                      </span>
+                    </div>
                   </div>
 
                   <p className="text-xs text-[#161514] font-mono leading-relaxed bg-white/70 p-3 rounded-lg border border-purple-100">

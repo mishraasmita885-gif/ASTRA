@@ -135,6 +135,27 @@ export async function fetchAuditLog(limit = 50) {
   }
 }
 
+export async function postAuditLog({
+  type = 'COMMAND_UPLINK',
+  subsystem = 'VOICE_COMMS',
+  event,
+  source = 'VOICE_COMMAND',
+  telemetry_summary = null,
+}) {
+  try {
+    const res = await fetch(`${API_BASE}/audit-log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, subsystem, event, source, telemetry_summary }),
+    });
+    if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn('Failed to persist audit entry:', err);
+    return null;
+  }
+}
+
 export async function ingestTelemetry(channel, value, timestamp) {
   const res = await fetch(`${API_BASE}/telemetry`, {
     method: 'POST',

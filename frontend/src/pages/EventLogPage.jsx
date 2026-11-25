@@ -70,7 +70,15 @@ export const EventLogPage = () => {
   const orbitRev = Math.floor(4820 + (telemetry?.step || 0) / 100);
 
   const filteredLog = auditLog.filter((evt) => {
-    if (filterType !== 'ALL' && evt.type !== filterType) return false;
+    if (filterType === 'VOICE_COMMAND') {
+      const isVoice =
+        evt.type === 'VOICE_COMMAND' ||
+        (evt.message && evt.message.includes('VOICE_COMMAND')) ||
+        (evt.subsystem && evt.subsystem.includes('VOICE_COMMS'));
+      if (!isVoice) return false;
+    } else if (filterType !== 'ALL' && evt.type !== filterType) {
+      return false;
+    }
     if (searchQuery && !evt.message.toLowerCase().includes(searchQuery.toLowerCase())) return false;
     return true;
   });
@@ -172,8 +180,8 @@ export const EventLogPage = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5">
-            {['ALL', 'CRITICAL', 'COMMAND_UPLINK', 'INFO', 'OK'].map((t) => (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {['ALL', 'CRITICAL', 'COMMAND_UPLINK', 'VOICE_COMMAND', 'WARNING', 'INFO'].map((t) => (
               <button
                 key={t}
                 onClick={() => setFilterType(t)}
@@ -210,8 +218,10 @@ export const EventLogPage = () => {
                   className={`text-[9px] px-2 py-0.5 rounded font-bold shrink-0 ${
                     evt.type === 'CRITICAL'
                       ? 'bg-red-100 text-red-700'
-                      : evt.type === 'COMMAND_UPLINK'
+                      : evt.type === 'COMMAND_UPLINK' || evt.type === 'OPERATOR_APPROVAL'
                       ? 'bg-emerald-100 text-emerald-800 font-bold'
+                      : evt.type === 'VOICE_COMMAND'
+                      ? 'bg-[#fea619] text-[#24140b] border border-[#452a19]'
                       : evt.type === 'WARNING'
                       ? 'bg-amber-100 text-amber-800'
                       : 'bg-blue-100 text-blue-800'
@@ -221,6 +231,11 @@ export const EventLogPage = () => {
                 </span>
 
                 <span className="text-[#161514] font-medium leading-snug flex-1">{evt.message}</span>
+                {(evt.type === 'VOICE_COMMAND' || (evt.message && evt.message.includes('VOICE_COMMAND'))) && (
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-[#fea619] text-[#24140b] border border-[#452a19] font-mono font-bold shrink-0">
+                    VOICE
+                  </span>
+                )}
                 {evt.crypto_hash && (
                   <span className="text-[9px] px-2 py-0.5 rounded bg-purple-100 text-purple-900 border border-purple-200 font-mono font-bold shrink-0 flex items-center gap-1 shadow-xs">
                     <Lock className="w-2.5 h-2.5 text-purple-700" />

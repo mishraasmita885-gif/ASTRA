@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMission } from '../context/MissionContext';
 import {
   Settings,
@@ -29,9 +29,17 @@ export const SettingsPage = () => {
     availableChannels,
     activeChannel,
     switchActiveChannel,
+    speakBriefing,
   } = useMission();
 
   const [formState, setFormState] = useState({ ...settingsConfig });
+
+  useEffect(() => {
+    setFormState((prev) => ({
+      ...prev,
+      audioAlertsEnabled: settingsConfig.audioAlertsEnabled,
+    }));
+  }, [settingsConfig.audioAlertsEnabled]);
   const [apiKeyInput, setApiKeyInput] = useState(settingsConfig.customApiKey || '');
   const [saveBanner, setSaveBanner] = useState(false);
 
@@ -320,12 +328,28 @@ export const SettingsPage = () => {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => playAlertChime('warning')}
+                onClick={() => playAlertChime('CRITICAL')}
                 className="px-2.5 py-1 rounded-lg bg-[#ebdccb] hover:bg-[#dfcdb7] text-[#24140b] font-mono text-[10px] font-bold border border-[#24140b] flex items-center gap-1 cursor-pointer"
-                title="Test Alert Chime"
+                title="Test Procedural Critical Acoustic Chime"
               >
                 <Play className="w-3 h-3" />
-                <span>Test</span>
+                <span>Chime</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  speakBriefing?.(
+                    `Audio telemetry check nominal on channel ${activeChannel}. Voice synthesis operational.`,
+                    'HIGH',
+                    { bypassMute: true }
+                  )
+                }
+                className="px-2.5 py-1 rounded-lg bg-[#fea619] hover:bg-[#e59414] text-[#24140b] font-mono text-[10px] font-bold border border-[#24140b] flex items-center gap-1 cursor-pointer"
+                title="Test Operational Text-to-Speech Briefing"
+              >
+                <Volume2 className="w-3 h-3" />
+                <span>TTS</span>
               </button>
 
               <button

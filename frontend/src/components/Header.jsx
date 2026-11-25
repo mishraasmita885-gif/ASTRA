@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMission } from '../context/MissionContext';
 import { CommandPaletteModal } from './CommandPaletteModal';
+import { VoiceCommsWidget } from './VoiceCommsWidget';
 import {
   Search,
   Sun,
@@ -76,20 +77,22 @@ export const Header = () => {
           isSidebarCollapsed ? 'left-20' : 'left-64'
         }`}
       >
-        {/* Center/Left: Universal Mission Search Bar (Feature 5) */}
-        <div className="flex items-center gap-3 flex-1 max-w-md">
+        {/* Center/Left: Universal Mission Search Bar (Feature 5) + Voice Comms Transceiver */}
+        <div className="flex items-center gap-2.5 flex-1 min-w-0 max-w-xl">
           <div
             onClick={() => setIsPaletteOpen(true)}
-            className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-xl bg-white/95 border-2 border-[#24140b] text-[#161514] w-full shadow-[2px_2px_0px_0px_#24140b] cursor-pointer hover:bg-white transition-all select-none"
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/95 border-2 border-[#24140b] text-[#161514] flex-1 min-w-[140px] shadow-[2px_2px_0px_0px_#24140b] cursor-pointer hover:bg-white transition-all select-none"
           >
             <Search className="w-4 h-4 text-[#73533e] shrink-0" />
             <span className="text-xs text-[#8c827a] font-sans flex-1 truncate">
-              Search telemetry, P-3 detector, channels, procedures...
+              Search telemetry, channels, procedures...
             </span>
             <kbd className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-mono text-[#24140b] px-1.5 py-0.5 rounded border border-[#24140b] bg-[#ebdccb] font-bold shadow-[1px_1px_0px_0px_#24140b] whitespace-nowrap">
               Ctrl K
             </kbd>
           </div>
+
+          <VoiceCommsWidget />
         </div>
 
         {/* Right Controls: Constellation Switcher, Channel Ingestion, Backend Status, Crisis, RBAC Profile */}
